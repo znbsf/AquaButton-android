@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CompilerConfiguration">
-    <bytecodeTargetLevel>
+    <bytecodeTargetLevel target="21">
       <module name="app" target="1.8" />
-      <module name="AquaButton.app" target="1.8" />
       <module name="AquaButton.buildSrc" target="1.8" />
       <module name="AquaButton_buildSrc" target="1.8" />
     </bytecodeTargetLevel>

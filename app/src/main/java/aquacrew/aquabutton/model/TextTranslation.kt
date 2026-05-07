@@ -1,10 +1,21 @@
 package aquacrew.aquabutton.model
 
+import android.os.Parcelable
 import androidx.core.os.LocaleListCompat
 import androidx.core.os.forEach
+import kotlinx.android.parcel.Parcelize
 import java.util.*
 
-open class TextTranslation : HashMap<String, String?>() {
+@Parcelize
+open class TextTranslation : HashMap<String, String?>(), Parcelable {
+
+    fun bestEffort(): String? {
+        return invoke()
+            ?: get("zh-CN")
+            ?: get("ja-JP")
+            ?: get("en")
+            ?: values.firstOrNull()
+    }
 
     private fun getByKey(block: (key: String) -> Boolean): String? {
         return keys.find(block)?.let { get(it) }
@@ -28,7 +39,7 @@ open class TextTranslation : HashMap<String, String?>() {
             return get(if (localeList.isEmpty) {
                 Locale.getDefault()
             } else {
-                get(localeList[0])
+                localeList[0]
             })
         }
         return null

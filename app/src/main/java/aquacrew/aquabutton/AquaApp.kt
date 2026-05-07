@@ -9,7 +9,6 @@ import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import aquacrew.aquabutton.api.AssetsApi
 import aquacrew.aquabutton.api.provider.AquaButtonApiProvider
-import moe.feng.common.eventshelper.EventsHelper
 import java.io.File
 
 class AquaApp : Application() {
@@ -60,9 +59,6 @@ class AquaApp : Application() {
 
         // Install api provider implementation on application create
         AssetsApi.installProvider(AquaButtonApiProvider())
-
-        // Init components
-        EventsHelper.getInstance(this)
 
         // Set night mode
         AppCompatDelegate.setDefaultNightMode(darkMode)

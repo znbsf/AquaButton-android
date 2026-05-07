@@ -11,11 +11,9 @@ import kotlinx.android.synthetic.main.fragment_main_category_list.*
 import aquacrew.aquabutton.R
 import aquacrew.aquabutton.model.VoiceCategory
 import aquacrew.aquabutton.ui.common.BaseFragment
-import aquacrew.aquabutton.ui.main.event.MainUiEventCallback
+import aquacrew.aquabutton.ui.main.event.mainUiEventCallback
 import aquacrew.aquabutton.ui.main.list.ContributeVoicesItemBinder
 import aquacrew.aquabutton.ui.main.list.VoiceItemListAdapter
-import moe.feng.common.eventshelper.EventsHelper
-import moe.feng.common.eventshelper.of
 
 class CategoryListFragment : BaseFragment(R.layout.fragment_main_category_list) {
 
@@ -43,7 +41,7 @@ class CategoryListFragment : BaseFragment(R.layout.fragment_main_category_list) 
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        contentTitle.text = category.description()
+        contentTitle.text = category.description.bestEffort() ?: category.name
 
         contentList.adapter = adapter
 
@@ -51,9 +49,7 @@ class CategoryListFragment : BaseFragment(R.layout.fragment_main_category_list) 
                 ContributeVoicesItemBinder.Item(R.string.missing_voices_text)
 
         titleButton.setOnClickListener {
-            EventsHelper.getInstance(it.context)
-                .of<MainUiEventCallback>()
-                .toggleCategoryMenu()
+            it.context.mainUiEventCallback()?.toggleCategoryMenu()
         }
 
         subscribeButton.text = getString(R.string.subscribe_button, getString(R.string.vtuber_name))

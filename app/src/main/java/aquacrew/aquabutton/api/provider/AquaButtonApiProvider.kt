@@ -1,10 +1,12 @@
 package aquacrew.aquabutton.api.provider
 
+import aquacrew.aquabutton.model.TextTranslation
 import aquacrew.aquabutton.model.VoiceCategory
 import aquacrew.aquabutton.model.VoiceFileResponse
 import aquacrew.aquabutton.model.VoiceItem
-import aquacrew.aquabutton.model.internal.VoicesData
 import aquacrew.aquabutton.util.HttpUtils
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -29,7 +31,37 @@ open class AquaButtonApiProvider : IAssetsApiProvider {
 
     override suspend fun getVoices(): List<VoiceCategory> {
         val request = Request.Builder().url(voicesUrl).build()
-        return HttpUtils.requestAsJson<VoicesData>(request).voices
+        val response = withContext(Dispatchers.IO) { HttpUtils.client.newCall(request).execute() }
+        if (!response.isSuccessful) {
+            throw IOException("Response code is not okay (${response.code})")
+        }
+        val rawJson = response.body?.string()?.trim()
+            ?: throw IOException("This response has no body.")
+        return JsonParser.parseString(rawJson).asJsonObject
+            .getAsJsonArray("voices")
+            .map { categoryJson ->
+                val category = categoryJson.asJsonObject
+                VoiceCategory(
+                    name = category.get("categoryName").asString,
+                    description = category.getAsJsonObject("categoryDescription").asTextTranslation(),
+                    voiceList = category.getAsJsonArray("voiceList").map { voiceJson ->
+                        val voice = voiceJson.asJsonObject
+                        VoiceItem(
+                            name = voice.get("name").asString,
+                            path = voice.get("path").asString,
+                            description = voice.getAsJsonObject("description").asTextTranslation()
+                        )
+                    }
+                )
+            }
+    }
+
+    private fun JsonObject.asTextTranslation(): TextTranslation {
+        return TextTranslation().apply {
+            entrySet().forEach { (key, value) ->
+                this[key] = if (value.isJsonNull) null else value.asString
+            }
+        }
     }
 
     override suspend fun getVoiceFileResponse(voice: VoiceItem): VoiceFileResponse {

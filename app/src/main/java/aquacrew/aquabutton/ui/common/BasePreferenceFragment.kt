@@ -6,7 +6,7 @@ import android.os.Bundle
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
-import androidx.preference.PreferenceFragment
+import androidx.preference.PreferenceFragmentCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -14,11 +14,11 @@ import aquacrew.aquabutton.ui.settings.PreferenceActivity
 
 abstract class BasePreferenceFragment(
     private val preferencesRes: Int = 0
-) : PreferenceFragment() {
+) : PreferenceFragmentCompat() {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         if (preferencesRes != 0) {
-            addPreferencesFromResource(preferencesRes)
+            setPreferencesFromResource(preferencesRes, rootKey)
         }
     }
 
@@ -33,7 +33,7 @@ abstract class BasePreferenceFragment(
 
     fun setPreferenceClickListener(key: String,
                                    onClick: suspend CoroutineScope.() -> Unit) {
-        val preference = findPreference(key)
+        val preference = findPreference<Preference>(key)
             ?: throw IllegalArgumentException("Cannot find preference by key=$key")
         preference.setOnPreferenceClickListener {
             lifecycleScope.launch { onClick() }
@@ -45,7 +45,7 @@ abstract class BasePreferenceFragment(
         key: String,
         crossinline onChange: (T) -> Boolean
     ) {
-        val preference = findPreference(key)
+        val preference = findPreference<Preference>(key)
             ?: throw IllegalArgumentException("Cannot find preference by key=$key")
         preference.setOnPreferenceChangeListener { _, newValue ->
             onChange(newValue as T)
@@ -61,7 +61,7 @@ abstract class BasePreferenceFragment(
     }
 
     inline fun <reified T : Preference> preference(key: String): Lazy<T> {
-        return lazy { findPreference(key) as T }
+        return lazy { findPreference<T>(key) ?: throw IllegalArgumentException("Cannot find preference by key=$key") }
     }
 
     fun launchWhenCreated(block: suspend CoroutineScope.() -> Unit): Job =

@@ -52,7 +52,6 @@ import aquacrew.aquabutton.ui.sound.MaterialSound
 import aquacrew.aquabutton.util.FileUtils
 import aquacrew.aquabutton.util.VoicePlayer
 import kotlinx.coroutines.delay
-import moe.feng.common.eventshelper.EventsHelper
 
 class MainActivity : BaseActivity(R.layout.activity_main), MainUiEventCallback {
 
@@ -125,7 +124,6 @@ class MainActivity : BaseActivity(R.layout.activity_main), MainUiEventCallback {
         }
 
         updateTopMenuStates()
-        EventsHelper.getInstance(this).registerListener(this)
     }
 
     override fun onStart() {
@@ -140,7 +138,6 @@ class MainActivity : BaseActivity(R.layout.activity_main), MainUiEventCallback {
 
     override fun onDestroy() {
         super.onDestroy()
-        EventsHelper.getInstance(this).unregisterListener(this)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

@@ -3,9 +3,9 @@ package aquacrew.aquabutton.ui.settings
 import android.os.Bundle
 import android.text.format.Formatter
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.preference.ListPreference
 import androidx.preference.Preference
-import androidx.preference.SimpleMenuPreference
-import androidx.preference.SwitchPreference
+import androidx.preference.SwitchPreferenceCompat
 import androidx.preference.onValueChanged
 import com.google.android.material.snackbar.Snackbar
 import aquacrew.aquabutton.AquaApp
@@ -17,8 +17,8 @@ import aquacrew.aquabutton.util.IntentUtils
 
 class MainSettingsFragment : BasePreferenceFragment(R.xml.pref_main) {
 
-    private val darkMode: SimpleMenuPreference by preference("dark_mode")
-    private val soundEnabled: SwitchPreference by preference("ui_sound_enabled")
+    private val darkMode: ListPreference by preference("dark_mode")
+    private val soundEnabled: SwitchPreferenceCompat by preference("ui_sound_enabled")
     private val voiceCache: Preference by preference("clear_voice_cache")
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {

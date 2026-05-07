@@ -34,11 +34,6 @@ class OSSLicensesFragment : BaseFragment(R.layout.common_list) {
                 author = "Google"
                 githubUrl("material-components/material-components-android")
             }
-            mit {
-                name = "EventsHelper"
-                author = "Siubeng (fython)"
-                githubUrl("fython/EventsHelper")
-            }
             apache2 {
                 name = "MultiType"
                 author = "Drakeet"

@@ -13,7 +13,7 @@ constructor (
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = R.attr.preferenceStyle,
-    defStyleRes: Int = R.style.Preference
+    defStyleRes: Int = 0
 ) : Preference(context, attrs, defStyleAttr, defStyleRes) {
 
     var linkUrl: String? = null

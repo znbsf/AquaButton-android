@@ -1,22 +1,26 @@
 package aquacrew.aquabutton.ui.main.event
 
+import android.content.Context
+import android.content.ContextWrapper
 import aquacrew.aquabutton.model.VoiceItem
-import moe.feng.common.eventshelper.EventsListener
-import moe.feng.common.eventshelper.EventsOnThread
 
-@EventsListener
 interface MainUiEventCallback {
 
-    @EventsOnThread(EventsOnThread.MAIN_THREAD)
     fun toggleCategoryMenu()
 
-    @EventsOnThread(EventsOnThread.MAIN_THREAD)
     fun showErrorTextOnSnackbar(text: String)
 
-    @EventsOnThread(EventsOnThread.MAIN_THREAD)
     fun requestSaveVoice(voice: VoiceItem)
 
-    @EventsOnThread(EventsOnThread.MAIN_THREAD)
     fun requestReload()
 
+}
+
+fun Context.mainUiEventCallback(): MainUiEventCallback? {
+    var current: Context? = this
+    while (current is ContextWrapper) {
+        if (current is MainUiEventCallback) return current
+        current = current.baseContext
+    }
+    return current as? MainUiEventCallback
 }
