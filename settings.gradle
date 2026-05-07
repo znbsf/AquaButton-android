@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'AquaButton'
+rootProject.name = 'ButtonBox'
 include ':app'

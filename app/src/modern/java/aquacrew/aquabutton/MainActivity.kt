@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -114,6 +115,7 @@ private const val MEA_VOICE_BASE_URL =
 private const val PACK_SCHEMA_VERSION = 1
 private const val PREFS_NAME = "buttonbox_prefs"
 private const val PREF_HIDDEN_BUILT_IN_PACKS = "hidden_built_in_packs"
+private const val PREF_HIDDEN_BUILT_IN_CATEGORIES = "hidden_built_in_categories"
 private const val PREF_HIDDEN_BUILT_IN_ITEMS = "hidden_built_in_items"
 
 data class ButtonPack(
@@ -211,6 +213,9 @@ interface ButtonPackDao {
     @Query("SELECT * FROM button_items WHERE id = :itemId LIMIT 1")
     suspend fun getItem(itemId: String): ButtonItemEntity?
 
+    @Query("SELECT * FROM categories WHERE id = :categoryId LIMIT 1")
+    suspend fun getCategory(categoryId: String): CategoryEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPacks(packs: List<PackEntity>)
 
@@ -258,6 +263,24 @@ interface ButtonPackDao {
 
     @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM button_items WHERE categoryId = :categoryId")
     suspend fun getMaxItemSortOrder(categoryId: String): Int
+
+    @Query("UPDATE packs SET name = :name WHERE id = :packId")
+    suspend fun renamePack(packId: String, name: String)
+
+    @Query("UPDATE categories SET title = :title WHERE id = :categoryId")
+    suspend fun renameCategory(categoryId: String, title: String)
+
+    @Query("DELETE FROM trigger_phrases WHERE itemId IN (SELECT id FROM button_items WHERE categoryId = :categoryId)")
+    suspend fun deleteTriggerPhrasesForCategory(categoryId: String)
+
+    @Query("DELETE FROM button_items WHERE categoryId = :categoryId")
+    suspend fun deleteItemsForCategory(categoryId: String)
+
+    @Query("DELETE FROM categories WHERE id = :categoryId")
+    suspend fun deleteCategory(categoryId: String)
+
+    @Query("UPDATE button_items SET title = :title, categoryId = :categoryId, sortOrder = :sortOrder WHERE id = :itemId")
+    suspend fun updateButton(itemId: String, title: String, categoryId: String, sortOrder: Int)
 }
 
 @Database(
@@ -300,6 +323,11 @@ class ButtonPackRepository(
             dao.deleteBuiltInTriggerPhrases()
             dao.deleteBuiltInItems()
             dao.deleteBuiltInPacks()
+            hiddenBuiltInCategories().forEach { categoryId ->
+                dao.deleteTriggerPhrasesForCategory(categoryId)
+                dao.deleteItemsForCategory(categoryId)
+                dao.deleteCategory(categoryId)
+            }
             dao.insertPacks(builtInPacks.mapIndexed { index, pack -> pack.toEntity(index) })
             dao.insertCategories(
                 builtInPacks.flatMap { pack ->
@@ -347,6 +375,10 @@ class ButtonPackRepository(
             val manifestFile = File(extractRoot, "pack.json")
             require(manifestFile.isFile) { "pack.json is missing" }
             val manifest = JsonParser.parseString(manifestFile.readText()).asJsonObject
+            val schemaVersion = manifest.getOptionalInt("schemaVersion") ?: PACK_SCHEMA_VERSION
+            require(schemaVersion <= PACK_SCHEMA_VERSION) {
+                "Pack schema v$schemaVersion is newer than this app supports"
+            }
             val packId = manifest.getRequiredString("id").safeId()
             val packName = manifest.getRequiredString("name")
             val author = manifest.getOptionalString("author").ifBlank { "Imported" }
@@ -518,14 +550,18 @@ class ButtonPackRepository(
         return categoryId
     }
 
-    suspend fun importAudioButton(packId: String, categoryId: String, uri: Uri): String {
+    suspend fun importAudioButton(packId: String, categoryId: String, uri: Uri, title: String): String {
         val dao = database.buttonPackDao()
         val pack = dao.getPack(packId)
         requireNotNull(pack) { "Selected pack no longer exists" }
+        val category = dao.getCategory(categoryId)
+        requireNotNull(category) { "Selected category no longer exists" }
 
         val displayName = context.displayName(uri)
         val extension = displayName.substringAfterLast('.', "mp3").safeExtension()
-        val itemTitle = displayName.substringBeforeLast('.').ifBlank { "Audio Button" }
+        val itemTitle = title.trim().ifBlank {
+            displayName.substringBeforeLast('.').ifBlank { "Audio Button" }
+        }
         val itemId = "${itemTitle.safeId()}-${UUID.randomUUID().toString().take(8)}"
         val mediaFile = File(
             context.filesDir,
@@ -555,6 +591,63 @@ class ButtonPackRepository(
             )
         }
         return "$packId:$itemId"
+    }
+
+    suspend fun renamePack(packId: String, name: String) {
+        val cleanName = name.trim()
+        require(cleanName.isNotBlank()) { "Pack name is required" }
+        val dao = database.buttonPackDao()
+        requireNotNull(dao.getPack(packId)) { "Selected pack no longer exists" }
+        dao.renamePack(packId, cleanName)
+    }
+
+    suspend fun renameCategory(categoryId: String, title: String) {
+        val cleanTitle = title.trim()
+        require(cleanTitle.isNotBlank()) { "Category name is required" }
+        val dao = database.buttonPackDao()
+        requireNotNull(dao.getCategory(categoryId)) { "Selected category no longer exists" }
+        dao.renameCategory(categoryId, cleanTitle)
+    }
+
+    suspend fun deleteCategory(categoryId: String) {
+        val dao = database.buttonPackDao()
+        val category = dao.getCategory(categoryId)
+        requireNotNull(category) { "Selected category no longer exists" }
+        val pack = dao.getPack(category.packId)
+        requireNotNull(pack) { "Selected pack no longer exists" }
+        val items = dao.getItems().filter { it.categoryId == categoryId }
+        if (pack.isBuiltIn) {
+            rememberHiddenBuiltInCategory(categoryId)
+        }
+        database.withTransaction {
+            dao.deleteTriggerPhrasesForCategory(categoryId)
+            dao.deleteItemsForCategory(categoryId)
+            dao.deleteCategory(categoryId)
+        }
+        items.forEach { entity ->
+            entity.localPath?.let { File(it).delete() }
+            if (pack.isBuiltIn && entity.assetPath != null) {
+                rememberHiddenBuiltInItem(entity.id)
+            }
+        }
+    }
+
+    suspend fun updateButton(item: ButtonItem, title: String, categoryId: String) {
+        val cleanTitle = title.trim()
+        require(cleanTitle.isNotBlank()) { "Button title is required" }
+        val dao = database.buttonPackDao()
+        val itemDbId = "${item.packId}:${item.id}"
+        val entity = dao.getItem(itemDbId)
+        requireNotNull(entity) { "Button no longer exists" }
+        val targetCategory = dao.getCategory(categoryId)
+        requireNotNull(targetCategory) { "Target category no longer exists" }
+        require(targetCategory.packId == item.packId) { "Target category belongs to a different pack" }
+        val sortOrder = if (entity.categoryId == categoryId) {
+            entity.sortOrder
+        } else {
+            dao.getMaxItemSortOrder(categoryId) + 1
+        }
+        dao.updateButton(itemDbId, cleanTitle, categoryId, sortOrder)
     }
 
     suspend fun deletePack(packId: String) {
@@ -592,16 +685,19 @@ class ButtonPackRepository(
 
     private fun List<ButtonPack>.visibleBuiltInPacks(): List<ButtonPack> {
         val hiddenPacks = hiddenBuiltInPacks()
+        val hiddenCategories = hiddenBuiltInCategories()
         val hiddenItems = hiddenBuiltInItems()
         return filterNot { it.id in hiddenPacks }.map { pack ->
             pack.copy(
-                categories = pack.categories.map { category ->
-                    category.copy(
-                        items = category.items.filterNot { item ->
-                            "${item.packId}:${item.id}" in hiddenItems
-                        }
-                    )
-                }
+                categories = pack.categories
+                    .filterNot { category -> "${pack.id}:${category.id}" in hiddenCategories }
+                    .map { category ->
+                        category.copy(
+                            items = category.items.filterNot { item ->
+                                "${item.packId}:${item.id}" in hiddenItems
+                            }
+                        )
+                    }
             )
         }
     }
@@ -609,12 +705,21 @@ class ButtonPackRepository(
     private fun hiddenBuiltInPacks(): Set<String> =
         prefs().getStringSet(PREF_HIDDEN_BUILT_IN_PACKS, emptySet()).orEmpty()
 
+    private fun hiddenBuiltInCategories(): Set<String> =
+        prefs().getStringSet(PREF_HIDDEN_BUILT_IN_CATEGORIES, emptySet()).orEmpty()
+
     private fun hiddenBuiltInItems(): Set<String> =
         prefs().getStringSet(PREF_HIDDEN_BUILT_IN_ITEMS, emptySet()).orEmpty()
 
     private fun rememberHiddenBuiltInPack(packId: String) {
         prefs().edit()
             .putStringSet(PREF_HIDDEN_BUILT_IN_PACKS, hiddenBuiltInPacks() + packId)
+            .apply()
+    }
+
+    private fun rememberHiddenBuiltInCategory(categoryId: String) {
+        prefs().edit()
+            .putStringSet(PREF_HIDDEN_BUILT_IN_CATEGORIES, hiddenBuiltInCategories() + categoryId)
             .apply()
     }
 
@@ -793,7 +898,7 @@ class AquaViewModel : ViewModel() {
                     selectedCategoryId = importedPack?.categories?.firstOrNull()?.id,
                     query = "",
                     error = null,
-                    notice = "Imported ${importedPack?.name ?: importedPackId}"
+                    notice = "Imported ${importedPack?.name ?: importedPackId} (${importedPack?.itemCount ?: 0} buttons)"
                 )
             }.onFailure { error ->
                 state = state.copy(
@@ -817,7 +922,7 @@ class AquaViewModel : ViewModel() {
                     repo.exportPack(pack, uri)
                 }
             }.onSuccess {
-                state = state.copy(notice = "Exported ${pack.name}", error = null)
+                state = state.copy(notice = "Exported ${pack.name} (${pack.itemCount} buttons)", error = null)
             }.onFailure { error ->
                 state = state.copy(
                     error = error.message ?: "Failed to export pack",
@@ -891,9 +996,8 @@ class AquaViewModel : ViewModel() {
         }
     }
 
-    fun importAudioToSelectedCategory(activity: ComponentActivity, uri: Uri) {
+    fun importAudio(activity: ComponentActivity, uri: Uri, title: String, category: ButtonCategory) {
         val pack = state.selectedPack ?: return
-        val category = state.selectedCategory ?: return
         state = state.copy(error = null, notice = "Adding audio")
         viewModelScope.launch {
             runCatching {
@@ -901,7 +1005,7 @@ class AquaViewModel : ViewModel() {
                     val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
                         repository = it
                     }
-                    val itemDbId = repo.importAudioButton(pack.id, category.id, uri)
+                    val itemDbId = repo.importAudioButton(pack.id, category.id, uri, title)
                     itemDbId to repo.loadPacks()
                 }
             }.onSuccess { (itemDbId, packs) ->
@@ -922,6 +1026,122 @@ class AquaViewModel : ViewModel() {
                     error = error.message ?: "Failed to add audio",
                     notice = null
                 )
+            }
+        }
+    }
+
+    fun renameSelectedPack(activity: ComponentActivity, name: String) {
+        val pack = state.selectedPack ?: return
+        state = state.copy(error = null, notice = "Renaming ${pack.name}")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    repo.renamePack(pack.id, name)
+                    repo.loadPacks()
+                }
+            }.onSuccess { packs ->
+                val renamedPack = packs.firstOrNull { it.id == pack.id }
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = pack.id,
+                    selectedCategoryId = renamedPack?.categories?.firstOrNull { it.id == state.selectedCategoryId }?.id
+                        ?: renamedPack?.categories?.firstOrNull()?.id,
+                    error = null,
+                    notice = "Renamed ${renamedPack?.name ?: "pack"}"
+                )
+            }.onFailure { error ->
+                state = state.copy(error = error.message ?: "Failed to rename pack", notice = null)
+            }
+        }
+    }
+
+    fun renameSelectedCategory(activity: ComponentActivity, title: String) {
+        val pack = state.selectedPack ?: return
+        val category = state.selectedCategory ?: return
+        state = state.copy(error = null, notice = "Renaming ${category.title}")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    repo.renameCategory(category.id, title)
+                    repo.loadPacks()
+                }
+            }.onSuccess { packs ->
+                val updatedPack = packs.firstOrNull { it.id == pack.id }
+                val updatedCategory = updatedPack?.categories?.firstOrNull { it.id == category.id }
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = pack.id,
+                    selectedCategoryId = updatedCategory?.id ?: updatedPack?.categories?.firstOrNull()?.id,
+                    query = "",
+                    error = null,
+                    notice = "Renamed ${updatedCategory?.title ?: "category"}"
+                )
+            }.onFailure { error ->
+                state = state.copy(error = error.message ?: "Failed to rename category", notice = null)
+            }
+        }
+    }
+
+    fun deleteSelectedCategory(activity: ComponentActivity) {
+        val pack = state.selectedPack ?: return
+        val category = state.selectedCategory ?: return
+        if (category.items.any { state.playing?.packId == it.packId && state.playing?.id == it.id }) stop()
+        state = state.copy(error = null, notice = "Deleting ${category.title}")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    repo.deleteCategory(category.id)
+                    repo.loadPacks()
+                }
+            }.onSuccess { packs ->
+                val updatedPack = packs.firstOrNull { it.id == pack.id }
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = updatedPack?.id ?: packs.firstOrNull()?.id,
+                    selectedCategoryId = updatedPack?.categories?.firstOrNull()?.id
+                        ?: packs.firstOrNull()?.categories?.firstOrNull()?.id,
+                    query = "",
+                    error = null,
+                    notice = "Deleted ${category.title}"
+                )
+            }.onFailure { error ->
+                state = state.copy(error = error.message ?: "Failed to delete category", notice = null)
+            }
+        }
+    }
+
+    fun updateButton(activity: ComponentActivity, item: ButtonItem, title: String, category: ButtonCategory) {
+        state = state.copy(error = null, notice = "Updating ${item.title}")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    repo.updateButton(item, title, category.id)
+                    repo.loadPacks()
+                }
+            }.onSuccess { packs ->
+                val pack = packs.firstOrNull { it.id == item.packId }
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = pack?.id ?: state.selectedPackId,
+                    selectedCategoryId = category.id,
+                    query = "",
+                    error = null,
+                    notice = "Updated ${title.trim()}"
+                )
+            }.onFailure { error ->
+                state = state.copy(error = error.message ?: "Failed to update button", notice = null)
             }
         }
     }
@@ -1067,7 +1287,12 @@ class MainActivity : ComponentActivity() {
 fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewModel()) {
     var showNewPackDialog by mutableStateOf(false)
     var showNewCategoryDialog by mutableStateOf(false)
+    var showRenamePackDialog by mutableStateOf(false)
+    var showRenameCategoryDialog by mutableStateOf(false)
+    var showDeleteCategoryDialog by mutableStateOf(false)
     var showDeletePackDialog by mutableStateOf(false)
+    var pendingAudioUri by mutableStateOf<Uri?>(null)
+    var pendingEditItem by mutableStateOf<ButtonItem?>(null)
     var pendingDeleteItem by mutableStateOf<ButtonItem?>(null)
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -1082,7 +1307,7 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
     val audioLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri != null) viewModel.importAudioToSelectedCategory(activity, uri)
+        if (uri != null) pendingAudioUri = uri
     }
     LaunchedEffect(Unit) {
         viewModel.load(activity)
@@ -1110,7 +1335,11 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onNewPackClick = { showNewPackDialog = true },
                 onNewCategoryClick = { showNewCategoryDialog = true },
                 onAddAudioClick = { audioLauncher.launch(arrayOf("audio/*")) },
+                onRenamePackClick = { showRenamePackDialog = true },
+                onRenameCategoryClick = { showRenameCategoryDialog = true },
+                onDeleteCategoryClick = { showDeleteCategoryDialog = true },
                 onDeletePackClick = { showDeletePackDialog = true },
+                onEditItemClick = { pendingEditItem = it },
                 onDeleteItemClick = { pendingDeleteItem = it },
                 onImportClick = {
                     importLauncher.launch(
@@ -1145,6 +1374,55 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                     }
                 )
             }
+            if (showRenamePackDialog) {
+                viewModel.state.selectedPack?.let { pack ->
+                    TextEditDialog(
+                        title = "Rename Pack",
+                        label = "Pack name",
+                        initialValue = pack.name,
+                        confirmText = "Rename",
+                        onDismiss = { showRenamePackDialog = false },
+                        onConfirm = { name ->
+                            showRenamePackDialog = false
+                            viewModel.renameSelectedPack(activity, name)
+                        }
+                    )
+                } ?: run {
+                    showRenamePackDialog = false
+                }
+            }
+            if (showRenameCategoryDialog) {
+                viewModel.state.selectedCategory?.let { category ->
+                    TextEditDialog(
+                        title = "Rename Category",
+                        label = "Category name",
+                        initialValue = category.title,
+                        confirmText = "Rename",
+                        onDismiss = { showRenameCategoryDialog = false },
+                        onConfirm = { title ->
+                            showRenameCategoryDialog = false
+                            viewModel.renameSelectedCategory(activity, title)
+                        }
+                    )
+                } ?: run {
+                    showRenameCategoryDialog = false
+                }
+            }
+            if (showDeleteCategoryDialog) {
+                viewModel.state.selectedCategory?.let { category ->
+                    ConfirmDeleteDialog(
+                        title = "Delete Category",
+                        message = "Delete ${category.title} and ${category.items.size} buttons?",
+                        onDismiss = { showDeleteCategoryDialog = false },
+                        onConfirm = {
+                            showDeleteCategoryDialog = false
+                            viewModel.deleteSelectedCategory(activity)
+                        }
+                    )
+                } ?: run {
+                    showDeleteCategoryDialog = false
+                }
+            }
             if (showDeletePackDialog) {
                 viewModel.state.selectedPack?.let { pack ->
                     ConfirmDeleteDialog(
@@ -1171,6 +1449,38 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                     }
                 )
             }
+            pendingAudioUri?.let { uri ->
+                val selectedPack = viewModel.state.selectedPack
+                val categories = selectedPack?.categories.orEmpty()
+                val defaultTitle = activity.displayName(uri).substringBeforeLast('.').ifBlank { "Audio Button" }
+                AudioButtonDialog(
+                    title = "Add Audio",
+                    initialTitle = defaultTitle,
+                    categories = categories,
+                    initialCategory = viewModel.state.selectedCategory,
+                    confirmText = "Add",
+                    onDismiss = { pendingAudioUri = null },
+                    onConfirm = { buttonTitle, category ->
+                        pendingAudioUri = null
+                        viewModel.importAudio(activity, uri, buttonTitle, category)
+                    }
+                )
+            }
+            pendingEditItem?.let { item ->
+                val pack = viewModel.state.packs.firstOrNull { it.id == item.packId }
+                AudioButtonDialog(
+                    title = "Edit Button",
+                    initialTitle = item.title,
+                    categories = pack?.categories.orEmpty(),
+                    initialCategory = pack?.categories?.firstOrNull { it.id == item.categoryId },
+                    confirmText = "Save",
+                    onDismiss = { pendingEditItem = null },
+                    onConfirm = { buttonTitle, category ->
+                        pendingEditItem = null
+                        viewModel.updateButton(activity, item, buttonTitle, category)
+                    }
+                )
+            }
         }
     }
 }
@@ -1188,7 +1498,11 @@ private fun AquaHome(
     onNewPackClick: () -> Unit,
     onNewCategoryClick: () -> Unit,
     onAddAudioClick: () -> Unit,
+    onRenamePackClick: () -> Unit,
+    onRenameCategoryClick: () -> Unit,
+    onDeleteCategoryClick: () -> Unit,
     onDeletePackClick: () -> Unit,
+    onEditItemClick: (ButtonItem) -> Unit,
     onDeleteItemClick: (ButtonItem) -> Unit,
     onImportClick: () -> Unit,
     onExportClick: () -> Unit,
@@ -1215,6 +1529,30 @@ private fun AquaHome(
                         expanded = showPackMenu,
                         onDismissRequest = { showPackMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("Rename Pack") },
+                            enabled = state.selectedPack != null,
+                            onClick = {
+                                showPackMenu = false
+                                onRenamePackClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Rename Category") },
+                            enabled = state.selectedCategory != null,
+                            onClick = {
+                                showPackMenu = false
+                                onRenameCategoryClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete Category") },
+                            enabled = state.selectedCategory != null,
+                            onClick = {
+                                showPackMenu = false
+                                onDeleteCategoryClick()
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text("Import Pack") },
                             onClick = {
@@ -1281,6 +1619,7 @@ private fun AquaHome(
                     onNewPackClick = onNewPackClick,
                     onNewCategoryClick = onNewCategoryClick,
                     onAddAudioClick = onAddAudioClick,
+                    onEditItemClick = onEditItemClick,
                     onDeleteItemClick = onDeleteItemClick
                 )
             }
@@ -1298,6 +1637,7 @@ private fun ButtonPackBrowser(
     onNewPackClick: () -> Unit,
     onNewCategoryClick: () -> Unit,
     onAddAudioClick: () -> Unit,
+    onEditItemClick: (ButtonItem) -> Unit,
     onDeleteItemClick: (ButtonItem) -> Unit
 ) {
     Column(
@@ -1340,6 +1680,7 @@ private fun ButtonPackBrowser(
                         canDelete = state.selectedPack != null,
                         isPlaying = state.playing?.packId == item.packId && state.playing.id == item.id,
                         onClick = { onItemClick(item) },
+                        onEditClick = { onEditItemClick(item) },
                         onDeleteClick = { onDeleteItemClick(item) }
                     )
                 }
@@ -1442,6 +1783,109 @@ private fun NewCategoryDialog(
                 enabled = categoryName.isNotBlank()
             ) {
                 Text("Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun TextEditDialog(
+    title: String,
+    label: String,
+    initialValue: String,
+    confirmText: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var value by mutableStateOf(initialValue)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it },
+                label = { Text(label) },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(value) },
+                enabled = value.isNotBlank()
+            ) {
+                Text(confirmText)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AudioButtonDialog(
+    title: String,
+    initialTitle: String,
+    categories: List<ButtonCategory>,
+    initialCategory: ButtonCategory?,
+    confirmText: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String, ButtonCategory) -> Unit
+) {
+    var buttonTitle by mutableStateOf(initialTitle)
+    var selectedCategory by mutableStateOf(initialCategory ?: categories.firstOrNull())
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = buttonTitle,
+                    onValueChange = { buttonTitle = it },
+                    label = { Text("Button title") },
+                    singleLine = true
+                )
+                Text(
+                    text = "Category",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color(0xFF625B71)
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    categories.forEach { category ->
+                        AssistChip(
+                            onClick = { selectedCategory = category },
+                            label = { Text(category.title) },
+                            leadingIcon = if (category.id == selectedCategory?.id) {
+                                { Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00B8C8))) }
+                            } else {
+                                null
+                            }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val category = selectedCategory ?: return@TextButton
+                    onConfirm(buttonTitle, category)
+                },
+                enabled = buttonTitle.isNotBlank() && selectedCategory != null
+            ) {
+                Text(confirmText)
             }
         },
         dismissButton = {
@@ -1639,6 +2083,7 @@ private fun ButtonItemCard(
     canDelete: Boolean,
     isPlaying: Boolean,
     onClick: () -> Unit,
+    onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     Card(
@@ -1684,6 +2129,13 @@ private fun ButtonItemCard(
                 )
             }
             if (canDelete) {
+                IconButton(onClick = onEditClick) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Edit button",
+                        tint = Color(0xFF625B71)
+                    )
+                }
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
@@ -1853,7 +2305,7 @@ private fun ButtonItemEntity.toButtonItem(): ButtonItem {
     return ButtonItem(
         id = id.substringAfter(':', id),
         packId = packId,
-        categoryId = categoryId.substringAfter(':', categoryId),
+        categoryId = categoryId,
         title = title,
         mediaType = mediaType,
         assetPath = assetPath,
@@ -1916,6 +2368,10 @@ private fun JsonObject.getRequiredString(name: String): String {
 
 private fun JsonObject.getOptionalString(name: String): String {
     return get(name)?.asString.orEmpty()
+}
+
+private fun JsonObject.getOptionalInt(name: String): Int? {
+    return get(name)?.asInt
 }
 
 private fun String.safeId(): String {

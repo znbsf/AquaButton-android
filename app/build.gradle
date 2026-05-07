@@ -9,11 +9,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'aquacrew.aquabutton'
+        applicationId 'com.znbsf.buttonbox'
         minSdk 24
         targetSdk 36
-        versionCode 10
-        versionName '2.8-appbar-pack-menu'
+        versionCode 12
+        versionName '2.10-management-polish'
     }
 
     sourceSets {

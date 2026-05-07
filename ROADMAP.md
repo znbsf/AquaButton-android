@@ -134,7 +134,8 @@ Current implementation:
 
 ## Phase 4: Custom Audio Buttons
 
-Status: foundation completed for user packs, imported audio files, and deletion.
+Status: management polish completed for pack/category/button editing, with
+recording and sorting still planned.
 
 Goal: let users create their own audio buttons.
 
@@ -152,16 +153,25 @@ Done when:
 Current implementation:
 
 - `New Pack` creates a user-owned pack with a first category.
+- The launcher identity has been renamed to ButtonBox, with Android
+  `applicationId = com.znbsf.buttonbox` and a custom launcher icon.
 - Built-in pack assets remain read-only, but users can append app-private
   categories and imported audio to built-in packs.
 - `Add Audio` opens Android's file picker for `audio/*`, copies the selected
-  file into app-private storage, and creates a playable button.
+  file into app-private storage, opens an edit dialog for title/category, and
+  creates a playable button.
 - `Add Audio` now appears as the last card in the shown button list instead of
   in the top action strip.
 - `Add Category` appears as the last category chip for the selected pack.
 - User packs can be exported through the existing `.buttonpack.zip` path.
+- `.buttonpack.zip` import now checks `schemaVersion` and rejects packs created
+  for a newer format.
+- Import/export success messages include the affected button count.
 - User packs can be deleted with confirmation. Deleting a pack removes its
   categories, buttons, trigger phrases, and app-private media directory.
+- Packs can be renamed from the top app bar actions menu.
+- Categories can be renamed or deleted from the top app bar actions menu.
+- Buttons can be renamed and moved between categories from the list edit action.
 - Imported audio buttons in user packs can be deleted with confirmation.
   Deleting a button removes its database row, trigger phrases, and copied media
   file.
@@ -173,8 +183,7 @@ Current implementation:
   actions menu.
 - Pack actions, pack chips, and category chips use wrapping rows so narrow
   screens avoid long one-line horizontal controls.
-- Rename/edit flows, moving buttons, creating extra categories, and recording
-  audio are still planned.
+- Recording audio and category sorting are still planned.
 
 ## Phase 5: Video Buttons
 

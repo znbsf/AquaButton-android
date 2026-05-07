@@ -9,11 +9,16 @@ buttons can all live in the same pack system.
 
 - Jetpack Compose and Material 3 UI.
 - Android Studio Panda / AGP 9 / Gradle 9 toolchain.
+- Launcher identity is now `ButtonBox` with application id
+  `com.znbsf.buttonbox`.
 - Built-in AquaButton pack with 260 local voice assets.
 - Built-in MeaButton pack with 237 local voice assets.
 - Room-backed local pack database foundation.
-- `.buttonpack.zip` import/export foundation for portable audio packs.
-- Custom pack creation plus single-audio import into user packs.
+- `.buttonpack.zip` import/export foundation for portable audio packs, with
+  schema-version checks and clearer success/failure messages.
+- Custom pack creation plus guided single-audio import into any selected pack.
+- Rename packs/categories/buttons, move buttons between categories, and delete
+  categories with confirmation.
 - Delete packs and buttons with confirmation, including bundled Aqua/Mea
   content as local hidden state.
 - Add categories and imported audio to any selected pack, including bundled
@@ -54,8 +59,8 @@ Install on a connected emulator or device:
 
 Development is tracked in [ROADMAP.md](./ROADMAP.md). The next major phases are:
 
-- Manual import/export polish for `.buttonpack.zip` packs.
-- Custom audio polish: rename/move buttons, extra categories, and recording.
+- Recording new audio buttons.
+- Category sorting and richer pack import conflict previews.
 - Video buttons.
 - Foreground voice-recognition triggers.
 
@@ -85,15 +90,18 @@ storage so packs stay portable after import.
 Use `New Pack` to create a user-owned pack with an initial category. `New Pack`
 uses the same chip style as regular pack tabs. `Add Category` appears at the
 end of the category chips, and `Add Audio` appears as the last card in the
-shown button list.
+shown button list. Choosing an audio file opens an edit dialog so the title and
+target category can be checked before the button is created.
 
 Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
 add categories and imported audio to them. Imported audio files are copied into
 app-private storage, can be deleted, and can be exported again as part of a
-`.buttonpack.zip`. `Delete Pack`, `Import`, and `Export` live in the top app
-bar pack actions menu; deletion still asks for confirmation. Deleting built-in content
-records a local hidden-state preference so the app stops reseeding it on
-startup; it does not rewrite APK assets.
+`.buttonpack.zip`. Pack rename, category rename/delete, `Delete Pack`,
+`Import`, and `Export` live in the top app bar pack actions menu; destructive
+actions ask for confirmation. Buttons can be renamed, moved to another category,
+or deleted from the list. Deleting built-in content records a local hidden-state
+preference so the app stops reseeding it on startup; it does not rewrite APK
+assets.
 
 ## Source Credits
 
