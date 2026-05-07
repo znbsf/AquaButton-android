@@ -100,8 +100,9 @@ Current implementation:
 - Added Room database entities for packs, categories, button items, and trigger
   phrases.
 - Added a repository layer that seeds built-in Aqua and Mea packs into Room.
-- Built-in packs are marked read-only with `isBuiltIn = true` so future
-  imported/user packs can remain untouched when bundled assets refresh.
+- Built-in packs are marked with `isBuiltIn = true` so bundled assets stay
+  immutable while the UI can still hide deleted built-in packs and buttons as
+  local user state.
 - Playback supports asset paths, future local file paths, and remote fallback
   URLs from the same button item model.
 
@@ -151,7 +152,8 @@ Done when:
 Current implementation:
 
 - `New Pack` creates a user-owned pack with a first category.
-- Built-in packs remain read-only; `Add Audio` is enabled only for user packs.
+- Built-in pack assets remain read-only; `Add Audio` is enabled only for user
+  packs.
 - `Add Audio` opens Android's file picker for `audio/*`, copies the selected
   file into app-private storage, and creates a playable button.
 - User packs can be exported through the existing `.buttonpack.zip` path.
@@ -160,8 +162,13 @@ Current implementation:
 - Imported audio buttons in user packs can be deleted with confirmation.
   Deleting a button removes its database row, trigger phrases, and copied media
   file.
-- Built-in Aqua and Mea packs remain read-only; `Add Audio`, `Delete Pack`, and
-  per-button delete controls are disabled for built-in content.
+- Built-in Aqua and Mea assets remain read-only, but `Delete Pack` and
+  per-button delete are available for built-in content. Deleting built-in
+  content records local hidden-state preferences so startup reseeding skips it.
+- `Add Audio` remains disabled for built-in packs because APK assets should not
+  be mixed with user-owned media.
+- Pack actions, pack chips, and category chips use wrapping rows so narrow
+  screens avoid long one-line horizontal controls.
 - Rename/edit flows, moving buttons, creating extra categories, and recording
   audio are still planned.
 

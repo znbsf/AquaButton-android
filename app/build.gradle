@@ -12,8 +12,8 @@ android {
         applicationId 'aquacrew.aquabutton'
         minSdk 24
         targetSdk 36
-        versionCode 7
-        versionName '2.5-delete-user-content'
+        versionCode 8
+        versionName '2.6-hide-built-in-content'
     }
 
     sourceSets {

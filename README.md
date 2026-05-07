@@ -14,9 +14,11 @@ buttons can all live in the same pack system.
 - Room-backed local pack database foundation.
 - `.buttonpack.zip` import/export foundation for portable audio packs.
 - Custom pack creation plus single-audio import into user packs.
-- Delete user-created packs and imported audio buttons with confirmation.
+- Delete packs and buttons with confirmation, including bundled Aqua/Mea
+  content as local hidden state.
 - Pack switching, category filtering, search, random play, stop, and local
   asset-first playback.
+- Pack actions and category chips wrap across multiple rows on narrow screens.
 - Fallback remote playback URL is retained for built-in packs.
 
 ## Downloads
@@ -79,10 +81,13 @@ storage so packs stay portable after import.
 ## Custom Packs
 
 Use `New Pack` to create a user-owned pack with an initial category. Built-in
-Aqua and Mea packs stay read-only, so editing actions such as `Add Audio` and
-`Delete Pack` are disabled for those packs. Imported audio files are copied into
-app-private storage, can be deleted from user packs, and can be exported again
-as part of a `.buttonpack.zip`.
+Aqua and Mea packs keep their bundled assets read-only, so `Add Audio` remains
+enabled only for user packs. `Delete Pack` and per-button delete are available
+for both user and built-in packs. Deleting built-in content records a local
+hidden-state preference so the app stops reseeding it on startup; it does not
+rewrite APK assets. Imported audio files are copied into app-private storage,
+can be deleted from user packs, and can be exported again as part of a
+`.buttonpack.zip`.
 
 ## Source Credits
 

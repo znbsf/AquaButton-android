@@ -14,10 +14,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,9 +30,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -109,6 +108,9 @@ private const val AQUA_VOICE_BASE_URL =
 private const val MEA_VOICE_BASE_URL =
     "https://raw.githubusercontent.com/zyzsdy/meamea-button/master/public/voices/"
 private const val PACK_SCHEMA_VERSION = 1
+private const val PREFS_NAME = "buttonbox_prefs"
+private const val PREF_HIDDEN_BUILT_IN_PACKS = "hidden_built_in_packs"
+private const val PREF_HIDDEN_BUILT_IN_ITEMS = "hidden_built_in_items"
 
 data class ButtonPack(
     val id: String,
@@ -285,7 +287,7 @@ class ButtonPackRepository(
     private val database: AquaDatabase = AquaDatabase.get(context)
 ) {
     suspend fun loadPacks(): List<ButtonPack> {
-        val builtInPacks = loadBuiltInPacks()
+        val builtInPacks = loadBuiltInPacks().visibleBuiltInPacks()
         database.withTransaction {
             val dao = database.buttonPackDao()
             dao.deleteBuiltInTriggerPhrases()
@@ -528,11 +530,13 @@ class ButtonPackRepository(
         return "$packId:$itemId"
     }
 
-    suspend fun deleteUserPack(packId: String) {
+    suspend fun deletePack(packId: String) {
         val dao = database.buttonPackDao()
         val pack = dao.getPack(packId)
         requireNotNull(pack) { "Selected pack no longer exists" }
-        require(!pack.isBuiltIn) { "Built-in packs cannot be deleted" }
+        if (pack.isBuiltIn) {
+            rememberHiddenBuiltInPack(packId)
+        }
         database.withTransaction {
             dao.deleteTriggerPhrasesForPack(packId)
             dao.deleteItemsForPack(packId)
@@ -542,20 +546,58 @@ class ButtonPackRepository(
         File(context.filesDir, "button_packs/$packId").deleteRecursively()
     }
 
-    suspend fun deleteUserButton(item: ButtonItem) {
+    suspend fun deleteButton(item: ButtonItem) {
         val dao = database.buttonPackDao()
         val pack = dao.getPack(item.packId)
         requireNotNull(pack) { "Selected pack no longer exists" }
-        require(!pack.isBuiltIn) { "Built-in buttons cannot be deleted" }
         val itemDbId = "${item.packId}:${item.id}"
         val entity = dao.getItem(itemDbId)
         requireNotNull(entity) { "Button no longer exists" }
+        if (pack.isBuiltIn) {
+            rememberHiddenBuiltInItem(itemDbId)
+        }
         database.withTransaction {
             dao.deleteTriggerPhrasesForItem(itemDbId)
             dao.deleteItem(itemDbId)
         }
         entity.localPath?.let { File(it).delete() }
     }
+
+    private fun List<ButtonPack>.visibleBuiltInPacks(): List<ButtonPack> {
+        val hiddenPacks = hiddenBuiltInPacks()
+        val hiddenItems = hiddenBuiltInItems()
+        return filterNot { it.id in hiddenPacks }.map { pack ->
+            pack.copy(
+                categories = pack.categories.map { category ->
+                    category.copy(
+                        items = category.items.filterNot { item ->
+                            "${item.packId}:${item.id}" in hiddenItems
+                        }
+                    )
+                }
+            )
+        }
+    }
+
+    private fun hiddenBuiltInPacks(): Set<String> =
+        prefs().getStringSet(PREF_HIDDEN_BUILT_IN_PACKS, emptySet()).orEmpty()
+
+    private fun hiddenBuiltInItems(): Set<String> =
+        prefs().getStringSet(PREF_HIDDEN_BUILT_IN_ITEMS, emptySet()).orEmpty()
+
+    private fun rememberHiddenBuiltInPack(packId: String) {
+        prefs().edit()
+            .putStringSet(PREF_HIDDEN_BUILT_IN_PACKS, hiddenBuiltInPacks() + packId)
+            .apply()
+    }
+
+    private fun rememberHiddenBuiltInItem(itemDbId: String) {
+        prefs().edit()
+            .putStringSet(PREF_HIDDEN_BUILT_IN_ITEMS, hiddenBuiltInItems() + itemDbId)
+            .apply()
+    }
+
+    private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private fun loadBuiltInPacks(): List<ButtonPack> {
         val assets = context.assets
@@ -827,7 +869,6 @@ class AquaViewModel : ViewModel() {
 
     fun deleteSelectedPack(activity: ComponentActivity) {
         val pack = state.selectedPack ?: return
-        if (pack.isBuiltIn) return
         stop()
         state = state.copy(loading = true, error = null, notice = "Deleting ${pack.name}")
         viewModelScope.launch {
@@ -836,7 +877,7 @@ class AquaViewModel : ViewModel() {
                     val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
                         repository = it
                     }
-                    repo.deleteUserPack(pack.id)
+                    repo.deletePack(pack.id)
                     repo.loadPacks()
                 }
             }.onSuccess { packs ->
@@ -861,7 +902,7 @@ class AquaViewModel : ViewModel() {
 
     fun deleteButton(activity: ComponentActivity, item: ButtonItem) {
         val currentPack = state.selectedPack
-        if (currentPack?.isBuiltIn != false) return
+        if (currentPack == null) return
         if (state.playing?.packId == item.packId && state.playing?.id == item.id) stop()
         state = state.copy(error = null, notice = "Deleting ${item.title}")
         viewModelScope.launch {
@@ -870,7 +911,7 @@ class AquaViewModel : ViewModel() {
                     val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
                         repository = it
                     }
-                    repo.deleteUserButton(item)
+                    repo.deleteButton(item)
                     repo.loadPacks()
                 }
             }.onSuccess { packs ->
@@ -1196,7 +1237,7 @@ private fun ButtonPackBrowser(
                 items(state.shownItems, key = { "${it.packId}:${it.id}" }) { item ->
                     ButtonItemCard(
                         item = item,
-                        canDelete = state.selectedPack?.isBuiltIn == false,
+                        canDelete = state.selectedPack != null,
                         isPlaying = state.playing?.packId == item.packId && state.playing.id == item.id,
                         onClick = { onItemClick(item) },
                         onDeleteClick = { onDeleteItemClick(item) }
@@ -1207,6 +1248,7 @@ private fun ButtonPackBrowser(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PackActions(
     state: AquaUiState,
@@ -1216,13 +1258,12 @@ private fun PackActions(
     onImportClick: () -> Unit,
     onExportClick: () -> Unit
 ) {
-    Row(
+    FlowRow(
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Button(onClick = onNewPackClick) {
             Text("New Pack")
@@ -1235,7 +1276,7 @@ private fun PackActions(
         }
         Button(
             onClick = onDeletePackClick,
-            enabled = state.selectedPack?.isBuiltIn == false
+            enabled = state.selectedPack != null
         ) {
             Text("Delete Pack")
         }
@@ -1326,17 +1367,21 @@ private fun NewPackDialog(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PackSwitcher(
     packs: List<ButtonPack>,
     selectedPack: ButtonPack?,
     onPackClick: (ButtonPack) -> Unit
 ) {
-    LazyRow(
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(packs, key = { it.id }) { pack ->
+        packs.forEach { pack ->
             AssistChip(
                 onClick = { onPackClick(pack) },
                 label = { Text(pack.name) },
@@ -1350,17 +1395,21 @@ private fun PackSwitcher(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CategorySwitcher(
     categories: List<ButtonCategory>,
     selectedCategory: ButtonCategory?,
     onCategoryClick: (ButtonCategory) -> Unit
 ) {
-    LazyRow(
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(categories, key = { it.id }) { category ->
+        categories.forEach { category ->
             AssistChip(
                 onClick = { onCategoryClick(category) },
                 label = { Text(category.title) },
