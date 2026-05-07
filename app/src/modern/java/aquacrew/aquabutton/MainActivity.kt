@@ -38,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -201,6 +202,9 @@ interface ButtonPackDao {
     @Query("SELECT * FROM packs WHERE id = :packId LIMIT 1")
     suspend fun getPack(packId: String): PackEntity?
 
+    @Query("SELECT * FROM button_items WHERE id = :itemId LIMIT 1")
+    suspend fun getItem(itemId: String): ButtonItemEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPacks(packs: List<PackEntity>)
 
@@ -233,6 +237,12 @@ interface ButtonPackDao {
 
     @Query("DELETE FROM packs WHERE id = :packId")
     suspend fun deletePack(packId: String)
+
+    @Query("DELETE FROM trigger_phrases WHERE itemId = :itemId")
+    suspend fun deleteTriggerPhrasesForItem(itemId: String)
+
+    @Query("DELETE FROM button_items WHERE id = :itemId")
+    suspend fun deleteItem(itemId: String)
 
     @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM packs")
     suspend fun getMaxPackSortOrder(): Int
@@ -518,6 +528,35 @@ class ButtonPackRepository(
         return "$packId:$itemId"
     }
 
+    suspend fun deleteUserPack(packId: String) {
+        val dao = database.buttonPackDao()
+        val pack = dao.getPack(packId)
+        requireNotNull(pack) { "Selected pack no longer exists" }
+        require(!pack.isBuiltIn) { "Built-in packs cannot be deleted" }
+        database.withTransaction {
+            dao.deleteTriggerPhrasesForPack(packId)
+            dao.deleteItemsForPack(packId)
+            dao.deleteCategoriesForPack(packId)
+            dao.deletePack(packId)
+        }
+        File(context.filesDir, "button_packs/$packId").deleteRecursively()
+    }
+
+    suspend fun deleteUserButton(item: ButtonItem) {
+        val dao = database.buttonPackDao()
+        val pack = dao.getPack(item.packId)
+        requireNotNull(pack) { "Selected pack no longer exists" }
+        require(!pack.isBuiltIn) { "Built-in buttons cannot be deleted" }
+        val itemDbId = "${item.packId}:${item.id}"
+        val entity = dao.getItem(itemDbId)
+        requireNotNull(entity) { "Button no longer exists" }
+        database.withTransaction {
+            dao.deleteTriggerPhrasesForItem(itemDbId)
+            dao.deleteItem(itemDbId)
+        }
+        entity.localPath?.let { File(it).delete() }
+    }
+
     private fun loadBuiltInPacks(): List<ButtonPack> {
         val assets = context.assets
         val aquaJson = assets.open("voices.json").bufferedReader().use { it.readText() }
@@ -786,6 +825,75 @@ class AquaViewModel : ViewModel() {
         }
     }
 
+    fun deleteSelectedPack(activity: ComponentActivity) {
+        val pack = state.selectedPack ?: return
+        if (pack.isBuiltIn) return
+        stop()
+        state = state.copy(loading = true, error = null, notice = "Deleting ${pack.name}")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    repo.deleteUserPack(pack.id)
+                    repo.loadPacks()
+                }
+            }.onSuccess { packs ->
+                state = state.copy(
+                    loading = false,
+                    packs = packs,
+                    selectedPackId = packs.firstOrNull()?.id,
+                    selectedCategoryId = packs.firstOrNull()?.categories?.firstOrNull()?.id,
+                    query = "",
+                    error = null,
+                    notice = "Deleted ${pack.name}"
+                )
+            }.onFailure { error ->
+                state = state.copy(
+                    loading = false,
+                    error = error.message ?: "Failed to delete pack",
+                    notice = null
+                )
+            }
+        }
+    }
+
+    fun deleteButton(activity: ComponentActivity, item: ButtonItem) {
+        val currentPack = state.selectedPack
+        if (currentPack?.isBuiltIn != false) return
+        if (state.playing?.packId == item.packId && state.playing?.id == item.id) stop()
+        state = state.copy(error = null, notice = "Deleting ${item.title}")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    repo.deleteUserButton(item)
+                    repo.loadPacks()
+                }
+            }.onSuccess { packs ->
+                val pack = packs.firstOrNull { it.id == item.packId }
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = pack?.id ?: state.selectedPackId,
+                    selectedCategoryId = pack?.categories?.firstOrNull { it.id == item.categoryId }?.id
+                        ?: pack?.categories?.firstOrNull()?.id
+                        ?: state.selectedCategoryId,
+                    query = "",
+                    error = null,
+                    notice = "Deleted ${item.title}"
+                )
+            }.onFailure { error ->
+                state = state.copy(
+                    error = error.message ?: "Failed to delete button",
+                    notice = null
+                )
+            }
+        }
+    }
+
     fun play(item: ButtonItem) {
         stop()
         val player = MediaPlayer().apply {
@@ -858,6 +966,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewModel()) {
     var showNewPackDialog by mutableStateOf(false)
+    var showDeletePackDialog by mutableStateOf(false)
+    var pendingDeleteItem by mutableStateOf<ButtonItem?>(null)
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -898,6 +1008,8 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onStopClick = viewModel::stop,
                 onNewPackClick = { showNewPackDialog = true },
                 onAddAudioClick = { audioLauncher.launch(arrayOf("audio/*")) },
+                onDeletePackClick = { showDeletePackDialog = true },
+                onDeleteItemClick = { pendingDeleteItem = it },
                 onImportClick = {
                     importLauncher.launch(
                         arrayOf(
@@ -922,6 +1034,32 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                     }
                 )
             }
+            if (showDeletePackDialog) {
+                viewModel.state.selectedPack?.let { pack ->
+                    ConfirmDeleteDialog(
+                        title = "Delete Pack",
+                        message = "Delete ${pack.name} and all of its buttons?",
+                        onDismiss = { showDeletePackDialog = false },
+                        onConfirm = {
+                            showDeletePackDialog = false
+                            viewModel.deleteSelectedPack(activity)
+                        }
+                    )
+                } ?: run {
+                    showDeletePackDialog = false
+                }
+            }
+            pendingDeleteItem?.let { item ->
+                ConfirmDeleteDialog(
+                    title = "Delete Button",
+                    message = "Delete ${item.title}?",
+                    onDismiss = { pendingDeleteItem = null },
+                    onConfirm = {
+                        pendingDeleteItem = null
+                        viewModel.deleteButton(activity, item)
+                    }
+                )
+            }
         }
     }
 }
@@ -938,6 +1076,8 @@ private fun AquaHome(
     onStopClick: () -> Unit,
     onNewPackClick: () -> Unit,
     onAddAudioClick: () -> Unit,
+    onDeletePackClick: () -> Unit,
+    onDeleteItemClick: (ButtonItem) -> Unit,
     onImportClick: () -> Unit,
     onExportClick: () -> Unit,
     onRetryClick: () -> Unit
@@ -994,6 +1134,8 @@ private fun AquaHome(
                     onItemClick = onItemClick,
                     onNewPackClick = onNewPackClick,
                     onAddAudioClick = onAddAudioClick,
+                    onDeletePackClick = onDeletePackClick,
+                    onDeleteItemClick = onDeleteItemClick,
                     onImportClick = onImportClick,
                     onExportClick = onExportClick
                 )
@@ -1011,6 +1153,8 @@ private fun ButtonPackBrowser(
     onItemClick: (ButtonItem) -> Unit,
     onNewPackClick: () -> Unit,
     onAddAudioClick: () -> Unit,
+    onDeletePackClick: () -> Unit,
+    onDeleteItemClick: (ButtonItem) -> Unit,
     onImportClick: () -> Unit,
     onExportClick: () -> Unit
 ) {
@@ -1026,6 +1170,7 @@ private fun ButtonPackBrowser(
             state = state,
             onNewPackClick = onNewPackClick,
             onAddAudioClick = onAddAudioClick,
+            onDeletePackClick = onDeletePackClick,
             onImportClick = onImportClick,
             onExportClick = onExportClick
         )
@@ -1051,8 +1196,10 @@ private fun ButtonPackBrowser(
                 items(state.shownItems, key = { "${it.packId}:${it.id}" }) { item ->
                     ButtonItemCard(
                         item = item,
+                        canDelete = state.selectedPack?.isBuiltIn == false,
                         isPlaying = state.playing?.packId == item.packId && state.playing.id == item.id,
-                        onClick = { onItemClick(item) }
+                        onClick = { onItemClick(item) },
+                        onDeleteClick = { onDeleteItemClick(item) }
                     )
                 }
             }
@@ -1065,6 +1212,7 @@ private fun PackActions(
     state: AquaUiState,
     onNewPackClick: () -> Unit,
     onAddAudioClick: () -> Unit,
+    onDeletePackClick: () -> Unit,
     onImportClick: () -> Unit,
     onExportClick: () -> Unit
 ) {
@@ -1085,6 +1233,12 @@ private fun PackActions(
         ) {
             Text("Add Audio")
         }
+        Button(
+            onClick = onDeletePackClick,
+            enabled = state.selectedPack?.isBuiltIn == false
+        ) {
+            Text("Delete Pack")
+        }
         Button(onClick = onImportClick) {
             Text("Import")
         }
@@ -1104,6 +1258,30 @@ private fun PackActions(
             )
         }
     }
+}
+
+@Composable
+private fun ConfirmDeleteDialog(
+    title: String,
+    message: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
@@ -1283,7 +1461,13 @@ private fun SearchBox(
 }
 
 @Composable
-private fun ButtonItemCard(item: ButtonItem, isPlaying: Boolean, onClick: () -> Unit) {
+private fun ButtonItemCard(
+    item: ButtonItem,
+    canDelete: Boolean,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1325,6 +1509,15 @@ private fun ButtonItemCard(item: ButtonItem, isPlaying: Boolean, onClick: () -> 
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF7A7286)
                 )
+            }
+            if (canDelete) {
+                IconButton(onClick = onDeleteClick) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Delete button",
+                        tint = Color(0xFFB3261E)
+                    )
+                }
             }
         }
     }

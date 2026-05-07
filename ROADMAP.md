@@ -128,12 +128,12 @@ Current implementation:
 - Built-in packs can be exported as portable `.buttonpack.zip` files.
 - Imported packs overwrite the same pack id, which makes iteration on custom
   packs straightforward during development.
-- The current UI does not yet expose pack deletion; full round-trip deletion and
-  re-import will be completed with custom pack management.
+- User-created/imported packs can now be deleted from the UI, including their
+  database rows and app-private media directory.
 
 ## Phase 4: Custom Audio Buttons
 
-Status: foundation completed for user packs and imported audio files.
+Status: foundation completed for user packs, imported audio files, and deletion.
 
 Goal: let users create their own audio buttons.
 
@@ -155,7 +155,14 @@ Current implementation:
 - `Add Audio` opens Android's file picker for `audio/*`, copies the selected
   file into app-private storage, and creates a playable button.
 - User packs can be exported through the existing `.buttonpack.zip` path.
-- Editing, deleting, moving buttons, creating extra categories, and recording
+- User packs can be deleted with confirmation. Deleting a pack removes its
+  categories, buttons, trigger phrases, and app-private media directory.
+- Imported audio buttons in user packs can be deleted with confirmation.
+  Deleting a button removes its database row, trigger phrases, and copied media
+  file.
+- Built-in Aqua and Mea packs remain read-only; `Add Audio`, `Delete Pack`, and
+  per-button delete controls are disabled for built-in content.
+- Rename/edit flows, moving buttons, creating extra categories, and recording
   audio are still planned.
 
 ## Phase 5: Video Buttons
@@ -208,6 +215,6 @@ Done when:
 
 Continue polishing Phase 4: Custom Audio Buttons.
 
-The immediate implementation should add delete/rename flows for user packs and
-buttons, then add recording with `MediaRecorder`. After that, the same pack
-editor can grow naturally into video buttons.
+The immediate implementation should add rename/edit flows for user packs and
+buttons, extra category management, then recording with `MediaRecorder`. After
+that, the same pack editor can grow naturally into video buttons.

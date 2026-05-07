@@ -14,6 +14,7 @@ buttons can all live in the same pack system.
 - Room-backed local pack database foundation.
 - `.buttonpack.zip` import/export foundation for portable audio packs.
 - Custom pack creation plus single-audio import into user packs.
+- Delete user-created packs and imported audio buttons with confirmation.
 - Pack switching, category filtering, search, random play, stop, and local
   asset-first playback.
 - Fallback remote playback URL is retained for built-in packs.
@@ -50,7 +51,7 @@ Install on a connected emulator or device:
 Development is tracked in [ROADMAP.md](./ROADMAP.md). The next major phases are:
 
 - Manual import/export polish for `.buttonpack.zip` packs.
-- Custom audio polish: rename/delete/move buttons and recording.
+- Custom audio polish: rename/move buttons, extra categories, and recording.
 - Video buttons.
 - Foreground voice-recognition triggers.
 
@@ -78,9 +79,10 @@ storage so packs stay portable after import.
 ## Custom Packs
 
 Use `New Pack` to create a user-owned pack with an initial category. Built-in
-Aqua and Mea packs stay read-only; `Add Audio` is enabled only for user packs.
-Imported audio files are copied into app-private storage and can be exported
-again as part of a `.buttonpack.zip`.
+Aqua and Mea packs stay read-only, so editing actions such as `Add Audio` and
+`Delete Pack` are disabled for those packs. Imported audio files are copied into
+app-private storage, can be deleted from user packs, and can be exported again
+as part of a `.buttonpack.zip`.
 
 ## Source Credits
 
