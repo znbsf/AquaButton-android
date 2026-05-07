@@ -1,13 +1,14 @@
-# AquaButton Modern Roadmap
+# ButtonBox Roadmap
 
 This project is evolving from a single Aqua voice-button app into a data-driven
-button-pack platform. Aqua is the first built-in pack; future packs can include
-other creators, user-made audio buttons, video buttons, imports, and voice
-triggers.
+button-pack platform. Aqua and Mea are the first built-in packs; future packs can
+include creators, games, meme sounds, user-made audio buttons, video buttons,
+imports, and voice triggers.
 
 ## Target Product Shape
 
-- Multiple switchable button packs, such as Aqua and Mea.
+- Multiple switchable button packs, such as Aqua, Mea, game packs, and meme
+  packs.
 - Import/export complete button packs, including metadata and media files.
 - User-created buttons from recording or imported audio files.
 - Video buttons that play a fullscreen clip and return automatically.
@@ -80,7 +81,7 @@ Done when:
 
 ## Phase 2: Local Persistence
 
-Status: foundation completed for built-in packs.
+Status: completed for built-in packs.
 
 Goal: store imported and user-created packs locally.
 
@@ -106,17 +107,29 @@ Current implementation:
 
 ## Phase 3: Import and Export
 
+Status: foundation completed for audio packs.
+
 Goal: support portable button packs.
 
-- Implement `.buttonpack.zip` import.
-- Validate `pack.json` and reject broken/missing media references.
-- Copy imported media into app-private storage.
-- Implement export for a selected pack.
-- Add simple import/export UI.
+- Implemented `.buttonpack.zip` import.
+- Validates `pack.json` and rejects broken/missing media references.
+- Copies imported media into app-private storage.
+- Implements export for a selected pack.
+- Adds simple import/export UI.
+- Reserves manifest fields for future video media and trigger phrases.
 
 Done when:
 
 - A pack can be exported, deleted locally, imported again, and played.
+
+Current implementation:
+
+- Android system file picker is used for opening and creating pack zip files.
+- Built-in packs can be exported as portable `.buttonpack.zip` files.
+- Imported packs overwrite the same pack id, which makes iteration on custom
+  packs straightforward during development.
+- The current UI does not yet expose pack deletion; full round-trip deletion and
+  re-import will be completed with custom pack management.
 
 ## Phase 4: Custom Audio Buttons
 
@@ -181,8 +194,9 @@ Done when:
 
 ## Current Recommended Next Step
 
-Start with Phase 1: Button Pack Architecture.
+Continue with Phase 4: Custom Audio Buttons.
 
-The immediate implementation should create the shared `ButtonPack`,
-`ButtonCategory`, and `ButtonItem` model layer, then adapt the existing Compose
-UI and player to use those models while preserving the current Aqua behavior.
+The immediate implementation should add pack/category/button creation screens,
+then support importing one audio file or recording a new clip into app-private
+storage. That turns ButtonBox from a bundled-pack player into a real user-made
+soundboard tool.

@@ -4,9 +4,12 @@ import android.content.Context
 import android.content.res.AssetManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -80,17 +83,25 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.withTransaction
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
 import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 private const val AQUA_VOICE_BASE_URL =
     "https://raw.githubusercontent.com/zyzsdy/aqua-button/master/public/voices/"
 private const val MEA_VOICE_BASE_URL =
     "https://raw.githubusercontent.com/zyzsdy/meamea-button/master/public/voices/"
+private const val PACK_SCHEMA_VERSION = 1
 
 data class ButtonPack(
     val id: String,
@@ -201,6 +212,21 @@ interface ButtonPackDao {
 
     @Query("DELETE FROM packs WHERE isBuiltIn = 1")
     suspend fun deleteBuiltInPacks()
+
+    @Query("DELETE FROM trigger_phrases WHERE itemId IN (SELECT id FROM button_items WHERE packId = :packId)")
+    suspend fun deleteTriggerPhrasesForPack(packId: String)
+
+    @Query("DELETE FROM button_items WHERE packId = :packId")
+    suspend fun deleteItemsForPack(packId: String)
+
+    @Query("DELETE FROM categories WHERE packId = :packId")
+    suspend fun deleteCategoriesForPack(packId: String)
+
+    @Query("DELETE FROM packs WHERE id = :packId")
+    suspend fun deletePack(packId: String)
+
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM packs")
+    suspend fun getMaxPackSortOrder(): Int
 }
 
 @Database(
@@ -265,6 +291,145 @@ class ButtonPackRepository(
         return readPacksFromDatabase()
     }
 
+    suspend fun importPack(uri: Uri): String {
+        val importRoot = File(context.cacheDir, "pack_import_${System.currentTimeMillis()}")
+        val extractRoot = File(importRoot, "unzipped")
+        try {
+            extractRoot.mkdirs()
+            context.contentResolver.openInputStream(uri).use { input ->
+                requireNotNull(input) { "Cannot open selected pack" }
+                ZipInputStream(input).use { zip ->
+                    var entry = zip.nextEntry
+                    while (entry != null) {
+                        val outFile = safeZipFile(extractRoot, entry)
+                        if (entry.isDirectory) {
+                            outFile.mkdirs()
+                        } else {
+                            outFile.parentFile?.mkdirs()
+                            outFile.outputStream().use { output -> zip.copyTo(output) }
+                        }
+                        zip.closeEntry()
+                        entry = zip.nextEntry
+                    }
+                }
+            }
+
+            val manifestFile = File(extractRoot, "pack.json")
+            require(manifestFile.isFile) { "pack.json is missing" }
+            val manifest = JsonParser.parseString(manifestFile.readText()).asJsonObject
+            val packId = manifest.getRequiredString("id").safeId()
+            val packName = manifest.getRequiredString("name")
+            val author = manifest.getOptionalString("author").ifBlank { "Imported" }
+            val description = manifest.getOptionalString("description")
+            val categories = manifest.getAsJsonArray("categories") ?: JsonArray()
+            require(packId.isNotBlank()) { "Pack id is empty" }
+            require(packName.isNotBlank()) { "Pack name is empty" }
+            require(categories.size() > 0) { "Pack has no categories" }
+
+            val packDir = File(context.filesDir, "button_packs/$packId")
+            if (packDir.exists()) packDir.deleteRecursively()
+            packDir.mkdirs()
+
+            val categoryEntities = mutableListOf<CategoryEntity>()
+            val itemEntities = mutableListOf<ButtonItemEntity>()
+            categories.forEachIndexed { categoryIndex, categoryElement ->
+                val category = categoryElement.asJsonObject
+                val categoryId = category.getRequiredString("id").safeId()
+                val categoryDbId = "$packId:$categoryId"
+                categoryEntities += CategoryEntity(
+                    id = categoryDbId,
+                    packId = packId,
+                    title = category.getOptionalString("title").ifBlank { categoryId },
+                    sortOrder = categoryIndex
+                )
+
+                val items = category.getAsJsonArray("items") ?: JsonArray()
+                items.forEachIndexed { itemIndex, itemElement ->
+                    val item = itemElement.asJsonObject
+                    val itemId = item.getRequiredString("id").safeId()
+                    val mediaType = item.getOptionalString("mediaType").ifBlank { "audio" }
+                    require(mediaType == "audio" || mediaType == "video") {
+                        "Unsupported media type: $mediaType"
+                    }
+                    val mediaPath = item.getRequiredString("mediaPath")
+                    val mediaFile = safeRelativeFile(extractRoot, mediaPath)
+                    require(mediaFile.isFile) { "Missing media file: $mediaPath" }
+                    val importedMedia = safeRelativeFile(packDir, mediaPath)
+                    importedMedia.parentFile?.mkdirs()
+                    mediaFile.copyTo(importedMedia, overwrite = true)
+
+                    itemEntities += ButtonItemEntity(
+                        id = "$packId:$itemId",
+                        packId = packId,
+                        categoryId = categoryDbId,
+                        title = item.getOptionalString("title").ifBlank { itemId },
+                        mediaType = mediaType,
+                        assetPath = null,
+                        remoteUrl = null,
+                        localPath = importedMedia.absolutePath,
+                        sortOrder = itemIndex
+                    )
+                }
+            }
+            require(itemEntities.isNotEmpty()) { "Pack has no buttons" }
+
+            database.withTransaction {
+                val dao = database.buttonPackDao()
+                dao.deleteTriggerPhrasesForPack(packId)
+                dao.deleteItemsForPack(packId)
+                dao.deleteCategoriesForPack(packId)
+                dao.deletePack(packId)
+                dao.insertPacks(
+                    listOf(
+                        PackEntity(
+                            id = packId,
+                            name = packName,
+                            author = author,
+                            description = description,
+                            logoResName = "main_logo",
+                            isBuiltIn = false,
+                            sortOrder = dao.getMaxPackSortOrder() + 1
+                        )
+                    )
+                )
+                dao.insertCategories(categoryEntities)
+                dao.insertItems(itemEntities)
+            }
+            return packId
+        } finally {
+            importRoot.deleteRecursively()
+        }
+    }
+
+    suspend fun exportPack(pack: ButtonPack, uri: Uri) {
+        context.contentResolver.openOutputStream(uri).use { output ->
+            requireNotNull(output) { "Cannot open export destination" }
+            ZipOutputStream(output.buffered()).use { zip ->
+                val manifest = pack.toPackManifest()
+                zip.putNextEntry(ZipEntry("pack.json"))
+                zip.write(GsonBuilder().setPrettyPrinting().create().toJson(manifest).toByteArray())
+                zip.closeEntry()
+
+                pack.categories.forEach { category ->
+                    category.items.forEach { item ->
+                        val mediaPath = item.exportMediaPath(category.id)
+                        zip.putNextEntry(ZipEntry(mediaPath))
+                        when {
+                            item.assetPath != null -> {
+                                context.assets.open(item.assetPath).use { it.copyTo(zip) }
+                            }
+                            item.localPath != null -> {
+                                FileInputStream(File(item.localPath)).use { it.copyTo(zip) }
+                            }
+                            else -> Unit
+                        }
+                        zip.closeEntry()
+                    }
+                }
+            }
+        }
+    }
+
     private fun loadBuiltInPacks(): List<ButtonPack> {
         val assets = context.assets
         val aquaJson = assets.open("voices.json").bufferedReader().use { it.readText() }
@@ -326,6 +491,7 @@ class ButtonPackRepository(
 data class AquaUiState(
     val loading: Boolean = true,
     val error: String? = null,
+    val notice: String? = null,
     val packs: List<ButtonPack> = emptyList(),
     val selectedPackId: String? = null,
     val selectedCategoryId: String? = null,
@@ -365,14 +531,16 @@ class AquaViewModel : ViewModel() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var assetManager: AssetManager? = null
+    private var repository: ButtonPackRepository? = null
 
     fun load(activity: ComponentActivity) {
         assetManager = activity.assets
-        state = state.copy(loading = true, error = null)
+        repository = ButtonPackRepository(activity.applicationContext)
+        state = state.copy(loading = true, error = null, notice = null)
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    ButtonPackRepository(activity.applicationContext).loadPacks()
+                    requireNotNull(repository).loadPacks()
                 }
             }.onSuccess { packs ->
                 state = state.copy(
@@ -407,6 +575,60 @@ class AquaViewModel : ViewModel() {
 
     fun updateQuery(query: String) {
         state = state.copy(query = query)
+    }
+
+    fun importPack(activity: ComponentActivity, uri: Uri) {
+        state = state.copy(loading = true, error = null, notice = "Importing pack")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    val importedPackId = repo.importPack(uri)
+                    importedPackId to repo.loadPacks()
+                }
+            }.onSuccess { (importedPackId, packs) ->
+                val importedPack = packs.firstOrNull { it.id == importedPackId }
+                state = state.copy(
+                    loading = false,
+                    packs = packs,
+                    selectedPackId = importedPackId,
+                    selectedCategoryId = importedPack?.categories?.firstOrNull()?.id,
+                    query = "",
+                    error = null,
+                    notice = "Imported ${importedPack?.name ?: importedPackId}"
+                )
+            }.onFailure { error ->
+                state = state.copy(
+                    loading = false,
+                    error = error.message ?: "Failed to import pack",
+                    notice = null
+                )
+            }
+        }
+    }
+
+    fun exportSelectedPack(activity: ComponentActivity, uri: Uri) {
+        val pack = state.selectedPack ?: return
+        state = state.copy(error = null, notice = "Exporting ${pack.name}")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    repo.exportPack(pack, uri)
+                }
+            }.onSuccess {
+                state = state.copy(notice = "Exported ${pack.name}", error = null)
+            }.onFailure { error ->
+                state = state.copy(
+                    error = error.message ?: "Failed to export pack",
+                    notice = null
+                )
+            }
+        }
     }
 
     fun play(item: ButtonItem) {
@@ -480,6 +702,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewModel()) {
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) viewModel.importPack(activity, uri)
+    }
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri != null) viewModel.exportSelectedPack(activity, uri)
+    }
     LaunchedEffect(Unit) {
         viewModel.load(activity)
     }
@@ -503,6 +735,19 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onItemClick = viewModel::play,
                 onRandomClick = viewModel::playRandom,
                 onStopClick = viewModel::stop,
+                onImportClick = {
+                    importLauncher.launch(
+                        arrayOf(
+                            "application/zip",
+                            "application/octet-stream",
+                            "application/x-zip-compressed"
+                        )
+                    )
+                },
+                onExportClick = {
+                    val packId = viewModel.state.selectedPack?.id ?: "buttonpack"
+                    exportLauncher.launch("${packId.safeId()}.buttonpack.zip")
+                },
                 onRetryClick = { viewModel.load(activity) }
             )
         }
@@ -519,6 +764,8 @@ private fun AquaHome(
     onItemClick: (ButtonItem) -> Unit,
     onRandomClick: () -> Unit,
     onStopClick: () -> Unit,
+    onImportClick: () -> Unit,
+    onExportClick: () -> Unit,
     onRetryClick: () -> Unit
 ) {
     Scaffold(
@@ -570,7 +817,9 @@ private fun AquaHome(
                     onPackClick = onPackClick,
                     onCategoryClick = onCategoryClick,
                     onQueryChange = onQueryChange,
-                    onItemClick = onItemClick
+                    onItemClick = onItemClick,
+                    onImportClick = onImportClick,
+                    onExportClick = onExportClick
                 )
             }
         }
@@ -583,7 +832,9 @@ private fun ButtonPackBrowser(
     onPackClick: (ButtonPack) -> Unit,
     onCategoryClick: (ButtonCategory) -> Unit,
     onQueryChange: (String) -> Unit,
-    onItemClick: (ButtonItem) -> Unit
+    onItemClick: (ButtonItem) -> Unit,
+    onImportClick: () -> Unit,
+    onExportClick: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
@@ -592,6 +843,11 @@ private fun ButtonPackBrowser(
             packs = state.packs,
             selectedPack = state.selectedPack,
             onPackClick = onPackClick
+        )
+        PackActions(
+            state = state,
+            onImportClick = onImportClick,
+            onExportClick = onExportClick
         )
         SearchBox(
             query = state.query,
@@ -620,6 +876,40 @@ private fun ButtonPackBrowser(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PackActions(
+    state: AquaUiState,
+    onImportClick: () -> Unit,
+    onExportClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Button(onClick = onImportClick) {
+            Text("Import")
+        }
+        Button(
+            onClick = onExportClick,
+            enabled = state.selectedPack != null
+        ) {
+            Text("Export")
+        }
+        state.notice?.let {
+            Text(
+                text = it,
+                color = Color(0xFF625B71),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -926,6 +1216,82 @@ private fun ButtonItemEntity.toButtonItem(): ButtonItem {
         remoteUrl = remoteUrl,
         localPath = localPath
     )
+}
+
+private fun ButtonPack.toPackManifest(): JsonObject {
+    return JsonObject().apply {
+        addProperty("schemaVersion", PACK_SCHEMA_VERSION)
+        addProperty("id", id)
+        addProperty("name", name)
+        addProperty("author", author)
+        addProperty("description", description)
+        val categoryArray = JsonArray()
+        categories.forEach { category ->
+            categoryArray.add(
+                JsonObject().apply {
+                    addProperty("id", category.id.substringAfter(':', category.id))
+                    addProperty("title", category.title)
+                    val itemArray = JsonArray()
+                    category.items.forEach { item ->
+                        itemArray.add(
+                            JsonObject().apply {
+                                addProperty("id", item.id.substringAfter(':', item.id))
+                                addProperty("title", item.title)
+                                addProperty("mediaType", item.mediaType)
+                                addProperty("mediaPath", item.exportMediaPath(category.id))
+                                add("triggerPhrases", JsonArray())
+                            }
+                        )
+                    }
+                    add("items", itemArray)
+                }
+            )
+        }
+        add("categories", categoryArray)
+    }
+}
+
+private fun ButtonItem.exportMediaPath(categoryId: String): String {
+    val extension = when {
+        assetPath != null -> File(assetPath).extension.ifBlank { "mp3" }
+        localPath != null -> File(localPath).extension.ifBlank { "mp3" }
+        mediaType == "video" -> "mp4"
+        else -> "mp3"
+    }
+    val fileName = "${categoryId.substringAfter(':', categoryId).safeId()}-${id.safeId()}.$extension"
+    return if (mediaType == "video") {
+        "assets/video/$fileName"
+    } else {
+        "assets/audio/$fileName"
+    }
+}
+
+private fun JsonObject.getRequiredString(name: String): String {
+    return requireNotNull(get(name)?.asString) { "$name is missing" }
+}
+
+private fun JsonObject.getOptionalString(name: String): String {
+    return get(name)?.asString.orEmpty()
+}
+
+private fun String.safeId(): String {
+    return trim()
+        .lowercase(Locale.US)
+        .replace(Regex("[^\\p{L}\\p{N}._-]+"), "-")
+        .trim('-')
+        .ifBlank { "pack-${System.currentTimeMillis()}" }
+}
+
+private fun safeZipFile(root: File, entry: ZipEntry): File {
+    return safeRelativeFile(root, entry.name)
+}
+
+private fun safeRelativeFile(root: File, relativePath: String): File {
+    val target = File(root, relativePath.replace('\\', '/'))
+    val rootPath = root.canonicalFile.toPath()
+    val targetPath = target.canonicalFile.toPath()
+    require(targetPath.startsWith(rootPath)) { "Unsafe zip path: $relativePath" }
+    return target
 }
 
 private fun JsonObject.bestText(): String {
