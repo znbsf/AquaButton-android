@@ -169,7 +169,8 @@ Current implementation:
   per-button delete are available for built-in content. Deleting built-in
   content records local hidden-state preferences so startup reseeding skips it.
 - The old action strip has been reduced: `New Pack` uses the same chip style as
-  pack tabs, while import, export, and delete live in a secondary pack menu.
+  pack tabs, while import, export, and delete live in the top app bar pack
+  actions menu.
 - Pack actions, pack chips, and category chips use wrapping rows so narrow
   screens avoid long one-line horizontal controls.
 - Rename/edit flows, moving buttons, creating extra categories, and recording

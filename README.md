@@ -90,8 +90,8 @@ shown button list.
 Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
 add categories and imported audio to them. Imported audio files are copied into
 app-private storage, can be deleted, and can be exported again as part of a
-`.buttonpack.zip`. `Delete Pack`, `Import`, and `Export` live in the pack
-actions menu; deletion still asks for confirmation. Deleting built-in content
+`.buttonpack.zip`. `Delete Pack`, `Import`, and `Export` live in the top app
+bar pack actions menu; deletion still asks for confirmation. Deleting built-in content
 records a local hidden-state preference so the app stops reseeding it on
 startup; it does not rewrite APK assets.
 

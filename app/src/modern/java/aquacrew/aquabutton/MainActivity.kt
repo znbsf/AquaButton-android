@@ -1194,6 +1194,7 @@ private fun AquaHome(
     onExportClick: () -> Unit,
     onRetryClick: () -> Unit
 ) {
+    var showPackMenu by mutableStateOf(false)
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
@@ -1205,6 +1206,39 @@ private fun AquaHome(
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.height(30.dp)
                     )
+                },
+                actions = {
+                    IconButton(onClick = { showPackMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Pack actions")
+                    }
+                    DropdownMenu(
+                        expanded = showPackMenu,
+                        onDismissRequest = { showPackMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Import Pack") },
+                            onClick = {
+                                showPackMenu = false
+                                onImportClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export Pack") },
+                            enabled = state.selectedPack != null,
+                            onClick = {
+                                showPackMenu = false
+                                onExportClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete Pack") },
+                            enabled = state.selectedPack != null,
+                            onClick = {
+                                showPackMenu = false
+                                onDeletePackClick()
+                            }
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
@@ -1247,10 +1281,7 @@ private fun AquaHome(
                     onNewPackClick = onNewPackClick,
                     onNewCategoryClick = onNewCategoryClick,
                     onAddAudioClick = onAddAudioClick,
-                    onDeletePackClick = onDeletePackClick,
-                    onDeleteItemClick = onDeleteItemClick,
-                    onImportClick = onImportClick,
-                    onExportClick = onExportClick
+                    onDeleteItemClick = onDeleteItemClick
                 )
             }
         }
@@ -1267,24 +1298,18 @@ private fun ButtonPackBrowser(
     onNewPackClick: () -> Unit,
     onNewCategoryClick: () -> Unit,
     onAddAudioClick: () -> Unit,
-    onDeletePackClick: () -> Unit,
-    onDeleteItemClick: (ButtonItem) -> Unit,
-    onImportClick: () -> Unit,
-    onExportClick: () -> Unit
+    onDeleteItemClick: (ButtonItem) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
         PackSwitcher(
-            state = state,
             packs = state.packs,
             selectedPack = state.selectedPack,
             onPackClick = onPackClick,
-            onNewPackClick = onNewPackClick,
-            onImportClick = onImportClick,
-            onExportClick = onExportClick,
-            onDeletePackClick = onDeletePackClick
+            onNewPackClick = onNewPackClick
         )
+        StatusNotice(state.notice)
         SearchBox(
             query = state.query,
             onQueryChange = onQueryChange,
@@ -1430,16 +1455,11 @@ private fun NewCategoryDialog(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PackSwitcher(
-    state: AquaUiState,
     packs: List<ButtonPack>,
     selectedPack: ButtonPack?,
     onPackClick: (ButtonPack) -> Unit,
-    onNewPackClick: () -> Unit,
-    onImportClick: () -> Unit,
-    onExportClick: () -> Unit,
-    onDeletePackClick: () -> Unit
+    onNewPackClick: () -> Unit
 ) {
-    var showMenu by mutableStateOf(false)
     FlowRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -1469,49 +1489,19 @@ private fun PackSwitcher(
                 )
             }
         )
-        Box {
-            IconButton(onClick = { showMenu = true }) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "Pack actions")
-            }
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Import Pack") },
-                    onClick = {
-                        showMenu = false
-                        onImportClick()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Export Pack") },
-                    enabled = state.selectedPack != null,
-                    onClick = {
-                        showMenu = false
-                        onExportClick()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Delete Pack") },
-                    enabled = state.selectedPack != null,
-                    onClick = {
-                        showMenu = false
-                        onDeletePackClick()
-                    }
-                )
-            }
-        }
-        state.notice?.let {
-            Text(
-                text = it,
-                color = Color(0xFF625B71),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp)
-            )
-        }
     }
+}
+
+@Composable
+private fun StatusNotice(notice: String?) {
+    if (notice == null) return
+    Text(
+        text = notice,
+        color = Color(0xFF625B71),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
