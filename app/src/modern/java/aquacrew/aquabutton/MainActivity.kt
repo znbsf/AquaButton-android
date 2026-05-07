@@ -1,5 +1,6 @@
 package aquacrew.aquabutton
 
+import android.content.Context
 import android.content.res.AssetManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
@@ -68,6 +69,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
@@ -87,7 +99,7 @@ data class ButtonPack(
     val description: String,
     val logoResId: Int,
     val categories: List<ButtonCategory>,
-    val isPlaceholder: Boolean = false
+    val isBuiltIn: Boolean = false
 ) {
     val itemCount: Int
         get() = categories.sumOf { it.items.size }
@@ -104,9 +116,212 @@ data class ButtonItem(
     val packId: String,
     val categoryId: String,
     val title: String,
+    val mediaType: String,
     val assetPath: String?,
-    val remoteUrl: String?
+    val remoteUrl: String?,
+    val localPath: String?
 )
+
+@Entity(tableName = "packs")
+data class PackEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val author: String,
+    val description: String,
+    val logoResName: String,
+    val isBuiltIn: Boolean,
+    val sortOrder: Int
+)
+
+@Entity(
+    tableName = "categories",
+    indices = [Index("packId")]
+)
+data class CategoryEntity(
+    @PrimaryKey val id: String,
+    val packId: String,
+    val title: String,
+    val sortOrder: Int
+)
+
+@Entity(
+    tableName = "button_items",
+    indices = [Index("packId"), Index("categoryId")]
+)
+data class ButtonItemEntity(
+    @PrimaryKey val id: String,
+    val packId: String,
+    val categoryId: String,
+    val title: String,
+    val mediaType: String,
+    val assetPath: String?,
+    val remoteUrl: String?,
+    val localPath: String?,
+    val sortOrder: Int
+)
+
+@Entity(
+    tableName = "trigger_phrases",
+    primaryKeys = ["itemId", "phrase"],
+    indices = [Index("itemId")]
+)
+data class TriggerPhraseEntity(
+    val itemId: String,
+    val phrase: String
+)
+
+@Dao
+interface ButtonPackDao {
+    @Query("SELECT * FROM packs ORDER BY sortOrder ASC, name ASC")
+    suspend fun getPacks(): List<PackEntity>
+
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC, title ASC")
+    suspend fun getCategories(): List<CategoryEntity>
+
+    @Query("SELECT * FROM button_items ORDER BY sortOrder ASC, title ASC")
+    suspend fun getItems(): List<ButtonItemEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPacks(packs: List<PackEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCategories(categories: List<CategoryEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItems(items: List<ButtonItemEntity>)
+
+    @Query("DELETE FROM trigger_phrases WHERE itemId IN (SELECT id FROM button_items WHERE packId IN (SELECT id FROM packs WHERE isBuiltIn = 1))")
+    suspend fun deleteBuiltInTriggerPhrases()
+
+    @Query("DELETE FROM button_items WHERE packId IN (SELECT id FROM packs WHERE isBuiltIn = 1)")
+    suspend fun deleteBuiltInItems()
+
+    @Query("DELETE FROM categories WHERE packId IN (SELECT id FROM packs WHERE isBuiltIn = 1)")
+    suspend fun deleteBuiltInCategories()
+
+    @Query("DELETE FROM packs WHERE isBuiltIn = 1")
+    suspend fun deleteBuiltInPacks()
+}
+
+@Database(
+    entities = [
+        PackEntity::class,
+        CategoryEntity::class,
+        ButtonItemEntity::class,
+        TriggerPhraseEntity::class
+    ],
+    version = 1,
+    exportSchema = false
+)
+abstract class AquaDatabase : RoomDatabase() {
+    abstract fun buttonPackDao(): ButtonPackDao
+
+    companion object {
+        @Volatile
+        private var instance: AquaDatabase? = null
+
+        fun get(context: Context): AquaDatabase {
+            return instance ?: synchronized(this) {
+                instance ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    AquaDatabase::class.java,
+                    "aqua_button.db"
+                ).build().also { instance = it }
+            }
+        }
+    }
+}
+
+class ButtonPackRepository(
+    private val context: Context,
+    private val database: AquaDatabase = AquaDatabase.get(context)
+) {
+    suspend fun loadPacks(): List<ButtonPack> {
+        val builtInPacks = loadBuiltInPacks()
+        database.withTransaction {
+            val dao = database.buttonPackDao()
+            dao.deleteBuiltInTriggerPhrases()
+            dao.deleteBuiltInItems()
+            dao.deleteBuiltInCategories()
+            dao.deleteBuiltInPacks()
+            dao.insertPacks(builtInPacks.mapIndexed { index, pack -> pack.toEntity(index) })
+            dao.insertCategories(
+                builtInPacks.flatMap { pack ->
+                    pack.categories.mapIndexed { index, category ->
+                        category.toEntity(pack.id, index)
+                    }
+                }
+            )
+            dao.insertItems(
+                builtInPacks.flatMap { pack ->
+                    pack.categories.flatMap { category ->
+                        category.items.mapIndexed { index, item ->
+                            item.toEntity(index)
+                        }
+                    }
+                }
+            )
+        }
+        return readPacksFromDatabase()
+    }
+
+    private fun loadBuiltInPacks(): List<ButtonPack> {
+        val assets = context.assets
+        val aquaJson = assets.open("voices.json").bufferedReader().use { it.readText() }
+        val meaJson = assets.open("mea_voices.json").bufferedReader().use { it.readText() }
+        return listOf(
+            aquaJson.parseButtonPack(
+                packId = "aqua",
+                packName = "AquaButton",
+                author = "MinatoAquaCrew",
+                description = "Bundled Minato Aqua voice buttons.",
+                logoResId = R.drawable.main_logo,
+                assetPrefix = "voices",
+                remoteBaseUrl = AQUA_VOICE_BASE_URL,
+                isBuiltIn = true
+            ),
+            meaJson.parseButtonPack(
+                packId = "mea",
+                packName = "MeaButton",
+                author = "zyzsdy/meamea-button",
+                description = "Bundled Kagura Mea voice buttons.",
+                logoResId = R.drawable.main_logo,
+                assetPrefix = "mea_voices",
+                remoteBaseUrl = MEA_VOICE_BASE_URL,
+                isBuiltIn = true
+            )
+        )
+    }
+
+    private suspend fun readPacksFromDatabase(): List<ButtonPack> {
+        val dao = database.buttonPackDao()
+        val packs = dao.getPacks()
+        val categoriesByPack = dao.getCategories().groupBy { it.packId }
+        val itemsByCategory = dao.getItems().groupBy { it.categoryId }
+        return packs.map { pack ->
+            ButtonPack(
+                id = pack.id,
+                name = pack.name,
+                author = pack.author,
+                description = pack.description,
+                logoResId = resolveDrawable(pack.logoResName),
+                isBuiltIn = pack.isBuiltIn,
+                categories = categoriesByPack[pack.id].orEmpty().map { category ->
+                    ButtonCategory(
+                        id = category.id,
+                        title = category.title,
+                        items = itemsByCategory[category.id].orEmpty().map { it.toButtonItem() }
+                    )
+                }
+            )
+        }
+    }
+
+    private fun resolveDrawable(name: String): Int {
+        val id = context.resources.getIdentifier(name, "drawable", context.packageName)
+        return if (id == 0) R.drawable.main_logo else id
+    }
+}
 
 data class AquaUiState(
     val loading: Boolean = true,
@@ -157,32 +372,7 @@ class AquaViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    val aquaJson = activity.assets.open("voices.json")
-                        .bufferedReader()
-                        .use { it.readText() }
-                    val meaJson = activity.assets.open("mea_voices.json")
-                        .bufferedReader()
-                        .use { it.readText() }
-                    listOf(
-                        aquaJson.parseButtonPack(
-                            packId = "aqua",
-                            packName = "AquaButton",
-                            author = "MinatoAquaCrew",
-                            description = "Bundled Minato Aqua voice buttons.",
-                            logoResId = R.drawable.main_logo,
-                            assetPrefix = "voices",
-                            remoteBaseUrl = AQUA_VOICE_BASE_URL
-                        ),
-                        meaJson.parseButtonPack(
-                            packId = "mea",
-                            packName = "MeaButton",
-                            author = "zyzsdy/meamea-button",
-                            description = "Bundled Kagura Mea voice buttons.",
-                            logoResId = R.drawable.main_logo,
-                            assetPrefix = "mea_voices",
-                            remoteBaseUrl = MEA_VOICE_BASE_URL
-                        )
-                    )
+                    ButtonPackRepository(activity.applicationContext).loadPacks()
                 }
             }.onSuccess { packs ->
                 state = state.copy(
@@ -247,6 +437,8 @@ class AquaViewModel : ViewModel() {
                     assetFile.use {
                         player.setDataSource(it.fileDescriptor, it.startOffset, it.length)
                     }
+                } else if (item.localPath != null) {
+                    player.setDataSource(item.localPath)
                 } else {
                     player.setDataSource(requireNotNull(item.remoteUrl))
                 }
@@ -649,7 +841,8 @@ private fun String.parseButtonPack(
     description: String,
     logoResId: Int,
     assetPrefix: String,
-    remoteBaseUrl: String
+    remoteBaseUrl: String,
+    isBuiltIn: Boolean
 ): ButtonPack {
     val categories = JsonParser.parseString(this).asJsonObject
         .getAsJsonArray("voices")
@@ -668,8 +861,10 @@ private fun String.parseButtonPack(
                         packId = packId,
                         categoryId = categoryId,
                         title = item.getAsJsonObject("description").bestText(),
+                        mediaType = "audio",
                         assetPath = "$assetPrefix/$path",
-                        remoteUrl = remoteBaseUrl + path
+                        remoteUrl = remoteBaseUrl + path,
+                        localPath = null
                     )
                 }
             )
@@ -680,7 +875,56 @@ private fun String.parseButtonPack(
         author = author,
         description = description,
         logoResId = logoResId,
-        categories = categories
+        categories = categories,
+        isBuiltIn = isBuiltIn
+    )
+}
+
+private fun ButtonPack.toEntity(sortOrder: Int): PackEntity {
+    return PackEntity(
+        id = id,
+        name = name,
+        author = author,
+        description = description,
+        logoResName = "main_logo",
+        isBuiltIn = isBuiltIn,
+        sortOrder = sortOrder
+    )
+}
+
+private fun ButtonCategory.toEntity(packId: String, sortOrder: Int): CategoryEntity {
+    return CategoryEntity(
+        id = "$packId:$id",
+        packId = packId,
+        title = title,
+        sortOrder = sortOrder
+    )
+}
+
+private fun ButtonItem.toEntity(sortOrder: Int): ButtonItemEntity {
+    return ButtonItemEntity(
+        id = "$packId:$id",
+        packId = packId,
+        categoryId = "$packId:$categoryId",
+        title = title,
+        mediaType = mediaType,
+        assetPath = assetPath,
+        remoteUrl = remoteUrl,
+        localPath = localPath,
+        sortOrder = sortOrder
+    )
+}
+
+private fun ButtonItemEntity.toButtonItem(): ButtonItem {
+    return ButtonItem(
+        id = id.substringAfter(':', id),
+        packId = packId,
+        categoryId = categoryId.substringAfter(':', categoryId),
+        title = title,
+        mediaType = mediaType,
+        assetPath = assetPath,
+        remoteUrl = remoteUrl,
+        localPath = localPath
     )
 }
 

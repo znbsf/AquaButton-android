@@ -80,6 +80,8 @@ Done when:
 
 ## Phase 2: Local Persistence
 
+Status: foundation completed for built-in packs.
+
 Goal: store imported and user-created packs locally.
 
 - Add Room database.
@@ -91,6 +93,16 @@ Done when:
 
 - App loads packs from a repository layer instead of directly from assets.
 - Built-in Aqua and database-backed packs share one UI path.
+
+Current implementation:
+
+- Added Room database entities for packs, categories, button items, and trigger
+  phrases.
+- Added a repository layer that seeds built-in Aqua and Mea packs into Room.
+- Built-in packs are marked read-only with `isBuiltIn = true` so future
+  imported/user packs can remain untouched when bundled assets refresh.
+- Playback supports asset paths, future local file paths, and remote fallback
+  URLs from the same button item model.
 
 ## Phase 3: Import and Export
 

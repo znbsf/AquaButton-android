@@ -10,6 +10,7 @@ between multiple voice packs.
 - Android Studio Panda / AGP 9 / Gradle 9 toolchain.
 - Built-in AquaButton pack with 260 local voice assets.
 - Built-in MeaButton pack with 237 local voice assets.
+- Room-backed local pack database foundation.
 - Pack switching, category filtering, search, random play, stop, and local
   asset-first playback.
 - Fallback remote playback URL is retained for built-in packs.
@@ -45,11 +46,14 @@ Install on a connected emulator or device:
 
 Development is tracked in [ROADMAP.md](./ROADMAP.md). The next major phases are:
 
-- Local persistence for imported and user-created packs.
 - `.buttonpack.zip` import/export.
 - Custom audio buttons from recording or imported files.
 - Video buttons.
 - Foreground voice-recognition triggers.
+
+The current app already stores the built-in packs through a Room database. This
+keeps the UI path shared with future imported and user-created packs while still
+refreshing bundled Aqua and Mea assets from read-only app assets.
 
 ## Source Credits
 
