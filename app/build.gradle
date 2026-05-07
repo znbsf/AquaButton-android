@@ -4,6 +4,8 @@ plugins {
     id 'com.google.devtools.ksp'
 }
 
+def buttonBoxVersionName = '2.12-release-packaging'
+
 android {
     namespace 'aquacrew.aquabutton'
     compileSdk 36
@@ -12,8 +14,20 @@ android {
         applicationId 'com.znbsf.buttonbox'
         minSdk 24
         targetSdk 36
-        versionCode 13
-        versionName '2.11-built-in-meme-pack'
+        versionCode 14
+        versionName buttonBoxVersionName
+    }
+
+    flavorDimensions 'content'
+    productFlavors {
+        bundled {
+            dimension 'content'
+            buildConfigField 'boolean', 'INCLUDE_BUILT_IN_PACKS', 'true'
+        }
+        empty {
+            dimension 'content'
+            buildConfigField 'boolean', 'INCLUDE_BUILT_IN_PACKS', 'false'
+        }
     }
 
     sourceSets {
@@ -21,6 +35,9 @@ android {
             manifest.srcFile 'src/modern/AndroidManifest.xml'
             kotlin.srcDirs = ['src/modern/java']
             res.srcDirs = ['src/modern/res']
+            assets.srcDirs = []
+        }
+        bundled {
             assets.srcDirs = ['src/modern/assets']
         }
     }
@@ -35,6 +52,15 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        def contentFlavor = variant.name.toLowerCase().contains('empty') ? 'empty' : 'bundled'
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("ButtonBox-${buttonBoxVersionName}-${contentFlavor}-${variant.buildType}.apk")
+        }
+    }
 }
 
 dependencies {

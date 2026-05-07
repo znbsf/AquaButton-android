@@ -35,6 +35,18 @@ Use the latest GitHub release:
 
 https://github.com/znbsf/AquaButton-android/releases
 
+Release assets are published with explicit names:
+
+- `ButtonBox-*-bundled-debug.apk`: app plus the three built-in packs
+  (AquaButton, MeaButton, MyInstants Meme Pack).
+- `ButtonBox-*-empty-debug.apk`: app shell without bundled audio packs; use this
+  if you only want imported or self-made packs.
+- `myinstants-meme-pack.buttonpack.zip`: standalone 37-button meme pack that can
+  be imported into either APK.
+
+To import a pack, install either APK, open ButtonBox, tap the top-right pack
+actions menu, choose `Import`, then select the `.buttonpack.zip` file.
+
 ## Build
 
 Recommended environment:
@@ -47,13 +59,13 @@ Recommended environment:
 Build from the repository root:
 
 ```powershell
-.\gradlew.bat assembleDebug
+.\gradlew.bat assembleBundledDebug assembleEmptyDebug
 ```
 
 Install on a connected emulator or device:
 
 ```powershell
-.\gradlew.bat installDebug
+.\gradlew.bat installBundledDebug
 ```
 
 ## Roadmap

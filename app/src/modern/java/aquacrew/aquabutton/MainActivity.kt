@@ -741,6 +741,9 @@ class ButtonPackRepository(
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private fun loadBuiltInPacks(): List<ButtonPack> {
+        if (!BuildConfig.INCLUDE_BUILT_IN_PACKS) {
+            return emptyList()
+        }
         val assets = context.assets
         val aquaJson = assets.open("voices.json").bufferedReader().use { it.readText() }
         val meaJson = assets.open("mea_voices.json").bufferedReader().use { it.readText() }
