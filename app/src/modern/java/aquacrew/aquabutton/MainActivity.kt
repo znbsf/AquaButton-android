@@ -54,7 +54,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +61,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,46 +75,70 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-private const val VOICE_BASE_URL =
+private const val AQUA_VOICE_BASE_URL =
     "https://raw.githubusercontent.com/zyzsdy/aqua-button/master/public/voices/"
+private const val MEA_VOICE_BASE_URL =
+    "https://raw.githubusercontent.com/zyzsdy/meamea-button/master/public/voices/"
 
-data class VoiceCategory(
+data class ButtonPack(
+    val id: String,
     val name: String,
+    val author: String,
     val description: String,
-    val voices: List<VoiceItem>
+    val logoResId: Int,
+    val categories: List<ButtonCategory>,
+    val isPlaceholder: Boolean = false
+) {
+    val itemCount: Int
+        get() = categories.sumOf { it.items.size }
+}
+
+data class ButtonCategory(
+    val id: String,
+    val title: String,
+    val items: List<ButtonItem>
 )
 
-data class VoiceItem(
-    val name: String,
-    val path: String,
-    val description: String
+data class ButtonItem(
+    val id: String,
+    val packId: String,
+    val categoryId: String,
+    val title: String,
+    val assetPath: String?,
+    val remoteUrl: String?
 )
 
 data class AquaUiState(
     val loading: Boolean = true,
     val error: String? = null,
-    val categories: List<VoiceCategory> = emptyList(),
-    val selectedCategory: String? = null,
+    val packs: List<ButtonPack> = emptyList(),
+    val selectedPackId: String? = null,
+    val selectedCategoryId: String? = null,
     val query: String = "",
-    val playing: VoiceItem? = null
+    val playing: ButtonItem? = null
 ) {
-    val selected: VoiceCategory?
-        get() = categories.firstOrNull { it.name == selectedCategory } ?: categories.firstOrNull()
+    val selectedPack: ButtonPack?
+        get() = packs.firstOrNull { it.id == selectedPackId } ?: packs.firstOrNull()
 
-    val shownVoices: List<VoiceItem>
+    val selectedCategory: ButtonCategory?
+        get() = selectedPack?.categories?.firstOrNull { it.id == selectedCategoryId }
+            ?: selectedPack?.categories?.firstOrNull()
+
+    val shownItems: List<ButtonItem>
         get() {
+            val pack = selectedPack ?: return emptyList()
             val source = if (query.isBlank()) {
-                selected?.voices.orEmpty()
+                selectedCategory?.items.orEmpty()
             } else {
-                categories.flatMap { it.voices }
+                pack.categories.flatMap { it.items }
             }
             val keyword = query.trim()
             return if (keyword.isEmpty()) {
                 source
             } else {
                 source.filter {
-                    it.description.contains(keyword, ignoreCase = true) ||
-                        it.name.contains(keyword, ignoreCase = true)
+                    it.title.contains(keyword, ignoreCase = true) ||
+                        it.id.contains(keyword, ignoreCase = true)
                 }
             }
         }
@@ -135,33 +157,69 @@ class AquaViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    activity.assets.open("voices.json").bufferedReader().use { it.readText() }
-                }.parseVoiceCategories()
-            }.onSuccess { categories ->
+                    val aquaJson = activity.assets.open("voices.json")
+                        .bufferedReader()
+                        .use { it.readText() }
+                    val meaJson = activity.assets.open("mea_voices.json")
+                        .bufferedReader()
+                        .use { it.readText() }
+                    listOf(
+                        aquaJson.parseButtonPack(
+                            packId = "aqua",
+                            packName = "AquaButton",
+                            author = "MinatoAquaCrew",
+                            description = "Bundled Minato Aqua voice buttons.",
+                            logoResId = R.drawable.main_logo,
+                            assetPrefix = "voices",
+                            remoteBaseUrl = AQUA_VOICE_BASE_URL
+                        ),
+                        meaJson.parseButtonPack(
+                            packId = "mea",
+                            packName = "MeaButton",
+                            author = "zyzsdy/meamea-button",
+                            description = "Bundled Kagura Mea voice buttons.",
+                            logoResId = R.drawable.main_logo,
+                            assetPrefix = "mea_voices",
+                            remoteBaseUrl = MEA_VOICE_BASE_URL
+                        )
+                    )
+                }
+            }.onSuccess { packs ->
                 state = state.copy(
                     loading = false,
-                    categories = categories,
-                    selectedCategory = categories.firstOrNull()?.name,
+                    packs = packs,
+                    selectedPackId = packs.firstOrNull()?.id,
+                    selectedCategoryId = packs.firstOrNull()?.categories?.firstOrNull()?.id,
                     error = null
                 )
             }.onFailure { error ->
                 state = state.copy(
                     loading = false,
-                    error = error.message ?: "Failed to load voices"
+                    error = error.message ?: "Failed to load button packs"
                 )
             }
         }
     }
 
-    fun selectCategory(category: VoiceCategory) {
-        state = state.copy(selectedCategory = category.name, query = "")
+    fun selectPack(pack: ButtonPack) {
+        if (pack.id == state.selectedPackId) return
+        stop()
+        state = state.copy(
+            selectedPackId = pack.id,
+            selectedCategoryId = pack.categories.firstOrNull()?.id,
+            query = ""
+        )
+    }
+
+    fun selectCategory(category: ButtonCategory) {
+        state = state.copy(selectedCategoryId = category.id, query = "")
     }
 
     fun updateQuery(query: String) {
         state = state.copy(query = query)
     }
 
-    fun play(voice: VoiceItem) {
+    fun play(item: ButtonItem) {
         stop()
         val player = MediaPlayer().apply {
             setAudioAttributes(
@@ -179,18 +237,18 @@ class AquaViewModel : ViewModel() {
             }
         }
         mediaPlayer = player
-        state = state.copy(playing = voice)
+        state = state.copy(playing = item)
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val assetFile = assetManager?.runCatching {
-                    openFd("voices/${voice.path}")
-                }?.getOrNull()
+                val assetFile = item.assetPath?.let { assetPath ->
+                    assetManager?.runCatching { openFd(assetPath) }?.getOrNull()
+                }
                 if (assetFile != null) {
                     assetFile.use {
                         player.setDataSource(it.fileDescriptor, it.startOffset, it.length)
                     }
                 } else {
-                    player.setDataSource(VOICE_BASE_URL + voice.path)
+                    player.setDataSource(requireNotNull(item.remoteUrl))
                 }
                 player.prepare()
                 player.start()
@@ -201,8 +259,8 @@ class AquaViewModel : ViewModel() {
     }
 
     fun playRandom() {
-        val voices = state.categories.flatMap { it.voices }
-        if (voices.isNotEmpty()) play(voices.random())
+        val items = state.selectedPack?.categories?.flatMap { it.items }.orEmpty()
+        if (items.isNotEmpty()) play(items.random())
     }
 
     fun stop() {
@@ -247,9 +305,10 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
         Surface(modifier = Modifier.fillMaxSize()) {
             AquaHome(
                 state = viewModel.state,
+                onPackClick = viewModel::selectPack,
                 onCategoryClick = viewModel::selectCategory,
                 onQueryChange = viewModel::updateQuery,
-                onVoiceClick = viewModel::play,
+                onItemClick = viewModel::play,
                 onRandomClick = viewModel::playRandom,
                 onStopClick = viewModel::stop,
                 onRetryClick = { viewModel.load(activity) }
@@ -262,9 +321,10 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
 @Composable
 private fun AquaHome(
     state: AquaUiState,
-    onCategoryClick: (VoiceCategory) -> Unit,
+    onPackClick: (ButtonPack) -> Unit,
+    onCategoryClick: (ButtonCategory) -> Unit,
     onQueryChange: (String) -> Unit,
-    onVoiceClick: (VoiceItem) -> Unit,
+    onItemClick: (ButtonItem) -> Unit,
     onRandomClick: () -> Unit,
     onStopClick: () -> Unit,
     onRetryClick: () -> Unit
@@ -275,8 +335,8 @@ private fun AquaHome(
             CenterAlignedTopAppBar(
                 title = {
                     Image(
-                        painter = painterResource(R.drawable.main_logo),
-                        contentDescription = "AquaButton",
+                        painter = painterResource(state.selectedPack?.logoResId ?: R.drawable.main_logo),
+                        contentDescription = state.selectedPack?.name ?: "AquaButton",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.height(30.dp)
                     )
@@ -313,11 +373,12 @@ private fun AquaHome(
             when {
                 state.loading -> LoadingView()
                 state.error != null -> ErrorView(state.error, onRetryClick)
-                else -> VoiceBrowser(
+                else -> ButtonPackBrowser(
                     state = state,
+                    onPackClick = onPackClick,
                     onCategoryClick = onCategoryClick,
                     onQueryChange = onQueryChange,
-                    onVoiceClick = onVoiceClick
+                    onItemClick = onItemClick
                 )
             }
         }
@@ -325,76 +386,158 @@ private fun AquaHome(
 }
 
 @Composable
-private fun VoiceBrowser(
+private fun ButtonPackBrowser(
     state: AquaUiState,
-    onCategoryClick: (VoiceCategory) -> Unit,
+    onPackClick: (ButtonPack) -> Unit,
+    onCategoryClick: (ButtonCategory) -> Unit,
     onQueryChange: (String) -> Unit,
-    onVoiceClick: (VoiceItem) -> Unit
+    onItemClick: (ButtonItem) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
+        PackSwitcher(
+            packs = state.packs,
+            selectedPack = state.selectedPack,
+            onPackClick = onPackClick
+        )
         SearchBox(
             query = state.query,
             onQueryChange = onQueryChange,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            items(state.categories, key = { it.name }) { category ->
-                AssistChip(
-                    onClick = { onCategoryClick(category) },
-                    label = { Text(category.description) },
-                    leadingIcon = if (category.name == state.selected?.name) {
-                        { Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00B8C8))) }
-                    } else {
-                        null
-                    }
-                )
+        CategorySwitcher(
+            categories = state.selectedPack?.categories.orEmpty(),
+            selectedCategory = state.selectedCategory,
+            onCategoryClick = onCategoryClick
+        )
+        PackSummary(state)
+        if (state.shownItems.isEmpty()) {
+            EmptyPackView(state.selectedPack, state.query)
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(state.shownItems, key = { "${it.packId}:${it.id}" }) { item ->
+                    ButtonItemCard(
+                        item = item,
+                        isPlaying = state.playing?.packId == item.packId && state.playing.id == item.id,
+                        onClick = { onItemClick(item) }
+                    )
+                }
             }
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (state.query.isBlank()) state.selected?.description.orEmpty() else "Search results",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${state.shownVoices.size} voices",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF625B71)
-                )
-            }
-            state.playing?.let {
-                Text(
-                    text = "Playing: ${it.description}",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = Color(0xFF6C2BFF),
-                    modifier = Modifier.weight(1f)
-                )
-            }
+    }
+}
+
+@Composable
+private fun PackSwitcher(
+    packs: List<ButtonPack>,
+    selectedPack: ButtonPack?,
+    onPackClick: (ButtonPack) -> Unit
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        items(packs, key = { it.id }) { pack ->
+            AssistChip(
+                onClick = { onPackClick(pack) },
+                label = { Text(pack.name) },
+                leadingIcon = if (pack.id == selectedPack?.id) {
+                    { Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF6C2BFF))) }
+                } else {
+                    null
+                }
+            )
         }
-        LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxSize()
+    }
+}
+
+@Composable
+private fun CategorySwitcher(
+    categories: List<ButtonCategory>,
+    selectedCategory: ButtonCategory?,
+    onCategoryClick: (ButtonCategory) -> Unit
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        items(categories, key = { it.id }) { category ->
+            AssistChip(
+                onClick = { onCategoryClick(category) },
+                label = { Text(category.title) },
+                leadingIcon = if (category.id == selectedCategory?.id) {
+                    { Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00B8C8))) }
+                } else {
+                    null
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PackSummary(state: AquaUiState) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (state.query.isBlank()) {
+                    state.selectedCategory?.title ?: state.selectedPack?.name.orEmpty()
+                } else {
+                    "Search results"
+                },
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "${state.selectedPack?.itemCount ?: 0} total / ${state.shownItems.size} shown",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF625B71)
+            )
+        }
+        state.playing?.let {
+            Text(
+                text = "Playing: ${it.title}",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = Color(0xFF6C2BFF),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyPackView(pack: ButtonPack?, query: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(state.shownVoices, key = { it.name }) { voice ->
-                VoiceCard(
-                    voice = voice,
-                    isPlaying = state.playing?.name == voice.name,
-                    onClick = { onVoiceClick(voice) }
-                )
-            }
+            Text(
+                text = if (query.isBlank()) "No buttons yet" else "No matches",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = pack?.description ?: "This pack is ready for future import and editing work.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF7A7286)
+            )
         }
     }
 }
@@ -416,7 +559,7 @@ private fun SearchBox(
                 }
             }
         },
-        placeholder = { Text("Search voices") },
+        placeholder = { Text("Search buttons") },
         singleLine = true,
         shape = RoundedCornerShape(18.dp),
         modifier = modifier.fillMaxWidth()
@@ -424,7 +567,7 @@ private fun SearchBox(
 }
 
 @Composable
-private fun VoiceCard(voice: VoiceItem, isPlaying: Boolean, onClick: () -> Unit) {
+private fun ButtonItemCard(item: ButtonItem, isPlaying: Boolean, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -455,14 +598,14 @@ private fun VoiceCard(voice: VoiceItem, isPlaying: Boolean, onClick: () -> Unit)
             Spacer(Modifier.size(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = voice.description,
+                    text = item.title,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = voice.name,
+                    text = item.id,
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF7A7286)
                 )
@@ -477,7 +620,7 @@ private fun LoadingView() {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator()
             Spacer(Modifier.height(16.dp))
-            Text("Loading voices")
+            Text("Loading button packs")
         }
     }
 }
@@ -490,7 +633,7 @@ private fun ErrorView(message: String, onRetryClick: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(24.dp)
         ) {
-            Text("Failed to load voices", style = MaterialTheme.typography.titleMedium)
+            Text("Failed to load packs", style = MaterialTheme.typography.titleMedium)
             Text(message, color = Color(0xFF7A7286))
             Button(onClick = onRetryClick) {
                 Text("Retry")
@@ -499,24 +642,46 @@ private fun ErrorView(message: String, onRetryClick: () -> Unit) {
     }
 }
 
-private fun String.parseVoiceCategories(): List<VoiceCategory> {
-    return JsonParser.parseString(this).asJsonObject
+private fun String.parseButtonPack(
+    packId: String,
+    packName: String,
+    author: String,
+    description: String,
+    logoResId: Int,
+    assetPrefix: String,
+    remoteBaseUrl: String
+): ButtonPack {
+    val categories = JsonParser.parseString(this).asJsonObject
         .getAsJsonArray("voices")
         .map { categoryJson ->
             val category = categoryJson.asJsonObject
-            VoiceCategory(
-                name = category.get("categoryName").asString,
-                description = category.getAsJsonObject("categoryDescription").bestText(),
-                voices = category.getAsJsonArray("voiceList").map { voiceJson ->
-                    val voice = voiceJson.asJsonObject
-                    VoiceItem(
-                        name = voice.get("name").asString,
-                        path = voice.get("path").asString,
-                        description = voice.getAsJsonObject("description").bestText()
+            val categoryId = category.get("categoryName").asString
+            ButtonCategory(
+                id = categoryId,
+                title = category.getAsJsonObject("categoryDescription").bestText(),
+                items = category.getAsJsonArray("voiceList").map { itemJson ->
+                    val item = itemJson.asJsonObject
+                    val itemId = item.get("name").asString
+                    val path = item.get("path").asString
+                    ButtonItem(
+                        id = itemId,
+                        packId = packId,
+                        categoryId = categoryId,
+                        title = item.getAsJsonObject("description").bestText(),
+                        assetPath = "$assetPrefix/$path",
+                        remoteUrl = remoteBaseUrl + path
                     )
                 }
             )
         }
+    return ButtonPack(
+        id = packId,
+        name = packName,
+        author = author,
+        description = description,
+        logoResId = logoResId,
+        categories = categories
+    )
 }
 
 private fun JsonObject.bestText(): String {

@@ -60,6 +60,8 @@ copying files into app storage.
 
 ## Phase 1: Button Pack Architecture
 
+Status: completed for built-in packs.
+
 Goal: turn the current Aqua-only app into a multi-pack app.
 
 - Extract the current Aqua data into an internal `ButtonPack`.
@@ -73,7 +75,7 @@ Done when:
 
 - The app still builds and runs in Android Studio.
 - Aqua appears as a selectable pack.
-- Switching logic exists even if only one pack is bundled.
+- Aqua and Mea appear as selectable built-in packs.
 - The old Aqua behavior still works.
 
 ## Phase 2: Local Persistence

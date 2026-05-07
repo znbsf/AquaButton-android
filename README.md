@@ -1,82 +1,70 @@
-AquaButton ⚓
-======
+# AquaButton Modern
 
-[![GPLv3 license](https://img.shields.io/github/license/MinatoAquaCrew/AquaButton-android.svg)](https://github.com/MinatoAquaCrew/AquaButton-android/blob/master/LICENSE)
+A modern Android voice-button app rebuilt with Jetpack Compose. The app started
+from AquaButton and now uses a button-pack architecture so one APK can switch
+between multiple voice packs.
 
-**AquaButton** can play voices of [Minato Aqua（湊あくあ）](./AMT.md) on your Android phone/tablet.
+## Current Features
 
-Inspired by [zyzsdy/aqua-button (AquaButton Web)](https://aquaminato.moe/). We created an Android version for more features and cooler user interface on mobile.
+- Jetpack Compose and Material 3 UI.
+- Android Studio Panda / AGP 9 / Gradle 9 toolchain.
+- Built-in AquaButton pack with 260 local voice assets.
+- Built-in MeaButton pack with 237 local voice assets.
+- Pack switching, category filtering, search, random play, stop, and local
+  asset-first playback.
+- Fallback remote playback URL is retained for built-in packs.
 
-Also experimented with a lot of features of Material Design like sounds, animations and components.
+## Downloads
 
-If you want to make a different version for your favourite VTuber, read [customize docs](./docs/CUSTOMIZE.md).
+Use the latest GitHub release:
 
-## Install
+https://github.com/znbsf/AquaButton-android/releases
 
-### Download pre-built package
+## Build
 
-Download from [GitHub Releases](https://github.com/MinatoAquaCrew/AquaButton-android/releases)
+Recommended environment:
 
-In the future, we will publish to Google Play and Coolapk.
+- Android Studio Panda 2025.3.4 or newer
+- JDK bundled with Android Studio
+- Android SDK Platform 36
+- Android SDK Build Tools 36
 
-### Build your own package
+Build from the repository root:
 
-Build environment:
-
-- Android Studio 4.1 Canary 6+
-- Android SDK (Platform Q SDK, Build tools and etc.)
-- Java 8+
-
-Build step:
-
-1. Use `git clone` clone repository to local
-2. Open project root directory, connect your Android devices and run `./gradlew installDebug`
-
-## Screenshot
-
-[![Watch on YouTube](https://img.youtube.com/vi/BdhIOnJCVQI/hqdefault.jpg)](https://youtu.be/BdhIOnJCVQI)
-
-## Contributing
-
-### Voices
-
-We used voice assets from repository of [zyzsdy/aqua-button (AquaButton Web)](https://github.com/zyzsdy/aqua-button).
-
-You can read description in this repo about how to add or modify voice.
-
-By the way, we also implemented other VTubers voice resources, you can read [this docs](./docs/VOICE_REPOS.md) to learn more.
-
-### Translations
-
-Please help us translate into English and Japanese (or more languages!)
-
-The language files for the main program are created in standard Android project structure. For example, Japanese translation is saved in [`app/src/main/res/values-ja/strings.xml`](https://github.com/MinatoAquaCrew/AquaButton-android/blob/master/app/src/main/res/values-ja/strings.xml).
-
-The language files for voices are in [zyzsdy/aqua-button (AquaButton Web)](https://github.com/zyzsdy/aqua-button).
-
-### Program
-
-Feel free to send issues and pull requests to this repository.
-
-## Licenses
-
-This project and GitHub organization is a work of enthusiasts and is not related to the hololive official.
-
-### Main program
-
-```
-GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
-
-Copyright (C) 2020 MinatoAquaCrew
-
-This program comes with ABSOLUTELY NO WARRANTY.
-This is free software, and you are welcome to redistribute it under certain conditions.
+```powershell
+.\gradlew.bat assembleDebug
 ```
 
-### Voices
+Install on a connected emulator or device:
 
-According to the [Hololive secondary creation licence](https://www.hololive.tv/terms).
+```powershell
+.\gradlew.bat installDebug
+```
 
-### Design (Icons, logos, sounds and etc.)
+## Roadmap
 
-Read [README in /design](./design/README.md)
+Development is tracked in [ROADMAP.md](./ROADMAP.md). The next major phases are:
+
+- Local persistence for imported and user-created packs.
+- `.buttonpack.zip` import/export.
+- Custom audio buttons from recording or imported files.
+- Video buttons.
+- Foreground voice-recognition triggers.
+
+## Source Credits
+
+This repository is a modernized continuation of:
+
+- [MinatoAquaCrew/AquaButton-android](https://github.com/MinatoAquaCrew/AquaButton-android)
+
+Built-in voice data and assets are derived from:
+
+- AquaButton web resources: [zyzsdy/aqua-button](https://github.com/zyzsdy/aqua-button)
+- MeaButton web resources: [zyzsdy/meamea-button](https://github.com/zyzsdy/meamea-button)
+
+## Licenses and Notes
+
+The original AquaButton Android program is GPLv3. This project keeps that
+license. Voice assets follow the relevant secondary-creation terms described by
+their upstream projects. This is a fan project and is not affiliated with
+Hololive, Minato Aqua, Kagura Mea, or any official agency.

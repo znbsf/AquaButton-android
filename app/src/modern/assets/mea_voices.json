@@ -1,0 +1,1984 @@
+{
+    "voices": [
+        {
+            "categoryName": "braying",
+            "categoryDescription": {
+                "zh-CN": "怪叫",
+                "ja-JP": "ブレーイング"
+            },
+            "voiceList": [
+                {
+                    "name": "01",
+                    "path": "01-1.mp3",
+                    "description": {
+                        "zh-CN": "啊啊啊！！！（鬼叫）",
+                        "ja-JP": "ああああ！！！（とんきょうな声）",
+                        "en-US": "Aaaaaaaaaaaa"
+                    }
+                },
+                {
+                    "name": "02",
+                    "path": "02-1.mp3",
+                    "description": {
+                        "zh-CN": "啊啊啊啊，有什么东西！等等等等",
+                        "ja-JP": "あっあっあっ！！なんかいる！ちょっと、ちょっとっ！"
+                    }
+                },
+                {
+                    "name": "03",
+                    "path": "03-1.mp3",
+                    "description": {
+                        "zh-CN": "啊啊啊啊（拉长音）",
+                        "ja-JP": "ああああー"
+                    }
+                },
+                {
+                    "name": "04",
+                    "path": "04-1.mp3",
+                    "description": {
+                        "zh-CN": "啊啊啊啊啊啊啊（震惊咩阿 音量注意）",
+                        "ja-JP": "あ゛あ゛あ゛あ゛（驚きめあ）"
+                    }
+                },
+                {
+                    "name": "05",
+                    "path": "05-1.mp3",
+                    "description": {
+                        "zh-CN": "擦盘子（笑声）",
+                        "ja-JP": "（笑いめあ）"
+                    }
+                },
+                {
+                    "name": "06",
+                    "path": "06-1.mp3",
+                    "description": {
+                        "zh-CN": "吼诶？吼诶吼诶？（幼mea）",
+                        "ja-JP": "ほえ？ほえほえ？（3歳になっちゃった）"
+                    }
+                },
+                {
+                    "name": "07",
+                    "path": "07-1.mp3",
+                    "description": {
+                        "zh-CN": "哈哈呵（铃铛般的笑声）",
+                        "ja-JP": "えへへえひひ"
+                    }
+                },
+                {
+                    "name": "08",
+                    "path": "08-1.mp3",
+                    "description": {
+                        "zh-CN": "呜哇",
+                        "ja-JP": "うわー"
+                    }
+                },
+                {
+                    "name": "09",
+                    "path": "09-1.mp3",
+                    "description": {
+                        "zh-CN": "喂喂",
+                        "ja-JP": "もしもし"
+                    }
+                },
+                {
+                    "name": "10",
+                    "path": "10-1.mp3",
+                    "description": {
+                        "zh-CN": "吸溜（吸口水）",
+                        "ja-JP": "（涎をすすり）"
+                    }
+                },
+                {
+                    "name": "61",
+                    "path": "61-1.mp3",
+                    "description": {
+                        "zh-CN": "啊啊啊啊（干扰）",
+                        "ja-JP": "ああ、ああ。（うるさい）"
+                    }
+                },
+                {
+                    "name": "64",
+                    "path": "64-1.mp3",
+                    "description": {
+                        "zh-CN": "刹车狂笑",
+                        "ja-JP": "狂った笑い（イルカの音）"
+                    }
+                },
+                {
+                    "name": "65",
+                    "path": "65-1.mp3",
+                    "description": {
+                        "zh-CN": "哈哈哈（狂笑）",
+                        "ja-JP": "ははははは（得意な笑い声）"
+                    }
+                },
+                {
+                    "name": "71",
+                    "path": "71.mp3",
+                    "description": {
+                        "zh-CN": "嗯嗯嗯嗯嗯嗯——（发电）",
+                        "ja-JP": "うんうんうんうん——"
+                    }
+                },
+                {
+                    "name": "m0614-1",
+                    "path": "m0614-1.mp3",
+                    "description": {
+                        "zh-CN": "啊---",
+                        "ja-JP": "あ---"
+                    }
+                },
+                {
+                    "name": "m0614-2",
+                    "path": "m0614-2.mp3",
+                    "description": {
+                        "zh-CN": "啊不是很强啊",
+                        "ja-JP": "啊不是很强啊"
+                    }
+                },
+                {
+                    "name": "m0614-3",
+                    "path": "m0614-3.mp3",
+                    "description": {
+                        "zh-CN": "啊啊",
+                        "ja-JP": "ああ"
+                    }
+                },
+                {
+                    "name": "m0614-4",
+                    "path": "m0614-4.mp3",
+                    "description": {
+                        "zh-CN": "啊啊（尖叫）",
+                        "ja-JP": "「叫び声」"
+                    }
+                }
+            ]
+        },
+        {
+            "categoryName": "modal",
+            "categoryDescription": {
+                "zh-CN": "语气",
+                "ja-JP": "モーダル"
+            },
+            "voiceList": [
+                {
+                    "name": "11",
+                    "path": "11-1.mp3",
+                    "description": {
+                        "zh-CN": "对吧~",
+                        "ja-JP": "ね〜"
+                    }
+                },
+                {
+                    "name": "12",
+                    "path": "12-1.mp3",
+                    "description": {
+                        "zh-CN": "诶，不明白",
+                        "ja-JP": "えぇ、わかないな"
+                    }
+                },
+                {
+                    "name": "13",
+                    "path": "13-1.mp3",
+                    "description": {
+                        "zh-CN": "诶什么什么？搞不懂",
+                        "ja-JP": "えっ？なになに？わからん"
+                    }
+                },
+                {
+                    "name": "14",
+                    "path": "14-1.mp3",
+                    "description": {
+                        "zh-CN": "嗑咻",
+                        "ja-JP": "くっしゅっ"
+                    }
+                },
+                {
+                    "name": "15",
+                    "path": "15-1.mp3",
+                    "description": {
+                        "zh-CN": "如何",
+                        "ja-JP": "どう？"
+                    }
+                },
+                {
+                    "name": "16",
+                    "path": "16-1.mp3",
+                    "description": {
+                        "zh-CN": "太好了",
+                        "ja-JP": "やった！"
+                    }
+                },
+                {
+                    "name": "17",
+                    "path": "17-1.mp3",
+                    "description": {
+                        "zh-CN": "一二一一",
+                        "ja-JP": "ワン、ツー、ワン、ワン"
+                    }
+                },
+                {
+                    "name": "62",
+                    "path": "62-1.mp3",
+                    "description": {
+                        "zh-CN": "byebye",
+                        "ja-JP": "バイ・バイ"
+                    }
+                },
+                {
+                    "name": "63",
+                    "path": "63-1.mp3",
+                    "description": {
+                        "zh-CN": "嗯？",
+                        "ja-JP": "ん？"
+                    }
+                },
+                {
+                    "name": "m0614-72",
+                    "path": "m0614-72.mp3",
+                    "description": {
+                        "zh-CN": "今天一天你也要你加油哦",
+                        "ja-JP": "今天一天你也要你加油哦"
+                    }
+                },
+                {
+                    "name": "m0614-73",
+                    "path": "m0614-73.mp3",
+                    "description": {
+                        "zh-CN": "原谅我吧",
+                        "ja-JP": "許して"
+                    }
+                },
+                {
+                    "name": "m0614-74",
+                    "path": "m0614-74.mp3",
+                    "description": {
+                        "zh-CN": "呜~糟糕",
+                        "ja-JP": "やばい..."
+                    }
+                },
+                {
+                    "name": "m0614-75",
+                    "path": "m0614-75.mp3",
+                    "description": {
+                        "zh-CN": "咋样",
+                        "ja-JP": "どうじゃ"
+                    }
+                },
+                {
+                    "name": "m0614-76",
+                    "path": "m0614-76.mp3",
+                    "description": {
+                        "zh-CN": "唉，算了",
+                        "ja-JP": "ま、いいか"
+                    }
+                },
+                {
+                    "name": "m0614-77",
+                    "path": "m0614-77.mp3",
+                    "description": {
+                        "zh-CN": "啊呸，真痛啊",
+                        "ja-JP": "痛い"
+                    }
+                },
+                {
+                    "name": "m0614-78",
+                    "path": "m0614-78.mp3",
+                    "description": {
+                        "zh-CN": "啊太好了",
+                        "ja-JP": "あ良かった"
+                    }
+                },
+                {
+                    "name": "m0614-79",
+                    "path": "m0614-79.mp3",
+                    "description": {
+                        "zh-CN": "啊好强",
+                        "ja-JP": "あ、強い"
+                    }
+                },
+                {
+                    "name": "m0614-80",
+                    "path": "m0614-80.mp3",
+                    "description": {
+                        "zh-CN": "啊好痛",
+                        "ja-JP": "あ、痛"
+                    }
+                },
+                {
+                    "name": "m0614-81",
+                    "path": "m0614-81.mp3",
+                    "description": {
+                        "zh-CN": "在一起吧",
+                        "ja-JP": "一緒にいよ"
+                    }
+                },
+                {
+                    "name": "m0614-82",
+                    "path": "m0614-82.mp3",
+                    "description": {
+                        "zh-CN": "在等你哦~",
+                        "ja-JP": "在等你哦~"
+                    }
+                },
+                {
+                    "name": "m0614-83",
+                    "path": "m0614-83.mp3",
+                    "description": {
+                        "zh-CN": "好可怜",
+                        "ja-JP": "可哀そう"
+                    }
+                },
+                {
+                    "name": "m0614-84",
+                    "path": "m0614-84.mp3",
+                    "description": {
+                        "zh-CN": "好吵啊，笨蛋",
+                        "ja-JP": "うるさいなバガ"
+                    }
+                },
+                {
+                    "name": "m0614-85",
+                    "path": "m0614-85.mp3",
+                    "description": {
+                        "zh-CN": "好好看着我~",
+                        "ja-JP": "好好看着我~"
+                    }
+                },
+                {
+                    "name": "m0614-86",
+                    "path": "m0614-86.mp3",
+                    "description": {
+                        "zh-CN": "好弱",
+                        "ja-JP": "好弱"
+                    }
+                },
+                {
+                    "name": "m0614-87",
+                    "path": "m0614-87.mp3",
+                    "description": {
+                        "zh-CN": "好过分的",
+                        "ja-JP": "酷い"
+                    }
+                },
+                {
+                    "name": "m0614-88",
+                    "path": "m0614-88.mp3",
+                    "description": {
+                        "zh-CN": "好，要上了",
+                        "ja-JP": "やるぞ！"
+                    }
+                },
+                {
+                    "name": "m0614-90",
+                    "path": "m0614-90.mp3",
+                    "description": {
+                        "zh-CN": "怎么办",
+                        "ja-JP": "怎么办"
+                    }
+                },
+                {
+                    "name": "m0614-91",
+                    "path": "m0614-91.mp3",
+                    "description": {
+                        "zh-CN": "怎么办2",
+                        "ja-JP": "怎么办2"
+                    }
+                },
+                {
+                    "name": "m0614-92",
+                    "path": "m0614-92.mp3",
+                    "description": {
+                        "zh-CN": "怎么回事？",
+                        "ja-JP": "どういうこと？"
+                    }
+                },
+                {
+                    "name": "m0614-94",
+                    "path": "m0614-94.mp3",
+                    "description": {
+                        "zh-CN": "想听吗？",
+                        "ja-JP": "聞きたい？"
+                    }
+                },
+                {
+                    "name": "m0614-95",
+                    "path": "m0614-95.mp3",
+                    "description": {
+                        "zh-CN": "懂了，等一下哦",
+                        "ja-JP": "分かった、ちょっと待ってね"
+                    }
+                },
+                {
+                    "name": "m0614-97",
+                    "path": "m0614-97.mp3",
+                    "description": {
+                        "zh-CN": "我冷静一下",
+                        "ja-JP": "落ち着くわ..."
+                    }
+                },
+                {
+                    "name": "m0614-99",
+                    "path": "m0614-99.mp3",
+                    "description": {
+                        "zh-CN": "我知道了",
+                        "ja-JP": "我知道了"
+                    }
+                },
+                {
+                    "name": "m0614-101",
+                    "path": "m0614-101.mp3",
+                    "description": {
+                        "zh-CN": "碍..碍事碍事",
+                        "ja-JP": "邪魔邪魔"
+                    }
+                },
+                {
+                    "name": "m0614-102",
+                    "path": "m0614-102.mp3",
+                    "description": {
+                        "zh-CN": "等等",
+                        "ja-JP": "等等"
+                    }
+                },
+                {
+                    "name": "m0614-103",
+                    "path": "m0614-103.mp3",
+                    "description": {
+                        "zh-CN": "糟了糟了糟了",
+                        "ja-JP": "やばいやばいやばい了"
+                    }
+                },
+                {
+                    "name": "m0614-104",
+                    "path": "m0614-104.mp3",
+                    "description": {
+                        "zh-CN": "诶恶心",
+                        "ja-JP": "え？きも"
+                    }
+                },
+                {
+                    "name": "m0614-105",
+                    "path": "m0614-105.mp3",
+                    "description": {
+                        "zh-CN": "诶等等",
+                        "ja-JP": "え？待って"
+                    }
+                },
+                {
+                    "name": "m0614-106",
+                    "path": "m0614-106.mp3",
+                    "description": {
+                        "zh-CN": "谁",
+                        "ja-JP": "谁"
+                    }
+                },
+                {
+                    "name": "m0614-107",
+                    "path": "m0614-107.mp3",
+                    "description": {
+                        "zh-CN": "谢谢了",
+                        "ja-JP": "ありがとな～"
+                    }
+                },
+                {
+                    "name": "m0614-109",
+                    "path": "m0614-109.mp3",
+                    "description": {
+                        "zh-CN": "这不太妙吧",
+                        "ja-JP": "やばくない？"
+                    }
+                },
+                {
+                    "name": "m0614-110",
+                    "path": "m0614-110.mp3",
+                    "description": {
+                        "zh-CN": "这个可能不太妙，超紧张的",
+                        "ja-JP": "这个可能不太妙，超紧张的"
+                    }
+                },
+                {
+                    "name": "m0614-111",
+                    "path": "m0614-111.mp3",
+                    "description": {
+                        "zh-CN": "这个没见过的",
+                        "ja-JP": "見たこともない"
+                    }
+                },
+                {
+                    "name": "m0614-112",
+                    "path": "m0614-112.mp3",
+                    "description": {
+                        "zh-CN": "这样子看得到吗？",
+                        "ja-JP": "これでどう？見えてる？"
+                    }
+                },
+                {
+                    "name": "m0614-113",
+                    "path": "m0614-113.mp3",
+                    "description": {
+                        "zh-CN": "这样就行了吗",
+                        "ja-JP": "これでいいかな？"
+                    }
+                },
+                {
+                    "name": "m0614-114",
+                    "path": "m0614-114.mp3",
+                    "description": {
+                        "zh-CN": "这样，这个吗",
+                        "ja-JP": "これか？"
+                    }
+                },
+                {
+                    "name": "m0629-15",
+                    "path": "m0629-15.mp3",
+                    "description": {
+                        "zh-CN": "啥情况啥情况",
+                        "ja-JP": "啥情况啥情况"
+                    }
+                },
+                {
+                    "name": "m0629-16",
+                    "path": "m0629-16.mp3",
+                    "description": {
+                        "zh-CN": "就是啊",
+                        "ja-JP": "そうだよ"
+                    }
+                },
+                {
+                    "name": "m0629-17",
+                    "path": "m0629-17.mp3",
+                    "description": {
+                        "zh-CN": "怎么样？",
+                        "ja-JP": "どう？"
+                    }
+                },
+                {
+                    "name": "m0629-18",
+                    "path": "m0629-18.mp3",
+                    "description": {
+                        "zh-CN": "懂吗",
+                        "ja-JP": "わかりますか？"
+                    }
+                },
+                {
+                    "name": "m0629-19",
+                    "path": "m0629-19.mp3",
+                    "description": {
+                        "zh-CN": "我回来了",
+                        "ja-JP": "戻りました"
+                    }
+                },
+                {
+                    "name": "m0629-20",
+                    "path": "m0629-20.mp3",
+                    "description": {
+                        "zh-CN": "有什么吗？",
+                        "ja-JP": "何ですか？"
+                    }
+                },
+                {
+                    "name": "m0629-21",
+                    "path": "m0629-21.mp3",
+                    "description": {
+                        "zh-CN": "真的非常感谢",
+                        "ja-JP": "ありがとうございます！"
+                    }
+                },
+                {
+                    "name": "m0629-22",
+                    "path": "m0629-22.mp3",
+                    "description": {
+                        "zh-CN": "啊…那就这样吧",
+                        "ja-JP": "じゃ、まぁ"
+                    }
+                },
+                {
+                    "name": "m0629-23",
+                    "path": "m0629-23.mp3",
+                    "description": {
+                        "zh-CN": "笨蛋",
+                        "ja-JP": "バガ！"
+                    }
+                },
+                {
+                    "name": "m0629-24",
+                    "path": "m0629-24.mp3",
+                    "description": {
+                        "zh-CN": "诶？",
+                        "ja-JP": "え？"
+                    }
+                },
+                {
+                    "name": "m0629-25",
+                    "path": "m0629-25.mp3",
+                    "description": {
+                        "zh-CN": "这不公平",
+                        "ja-JP": "フェアじゃない"
+                    }
+                }
+            ]
+        },
+        {
+            "categoryName": "kawaii",
+            "categoryDescription": {
+                "zh-CN": "可爱的meamea",
+                "ja-JP": "かわいいめあめあ"
+            },
+            "voiceList": [
+                {
+                    "name": "18",
+                    "path": "18-1.mp3",
+                    "description": {
+                        "zh-CN": "拜托了",
+                        "ja-JP": "よろしくお願いします"
+                    }
+                },
+                {
+                    "name": "19",
+                    "path": "19-1.mp3",
+                    "description": {
+                        "zh-CN": "姐姐大人~",
+                        "ja-JP": "お姉さま〜"
+                    }
+                },
+                {
+                    "name": "20",
+                    "path": "20-1.mp3",
+                    "description": {
+                        "zh-CN": "肯定会害羞啊",
+                        "ja-JP": "恥ずかしいやろう"
+                    }
+                },
+                {
+                    "name": "21",
+                    "path": "21-1.mp3",
+                    "description": {
+                        "zh-CN": "明明一直都是好孩子，一直都在让大家开心",
+                        "ja-JP": "いつも良い子だって"
+                    }
+                },
+                {
+                    "name": "22",
+                    "path": "22-1.mp3",
+                    "description": {
+                        "zh-CN": "mea不管了啦！！吓死人家了！！",
+                        "ja-JP": "もう、ふええ、怖い"
+                    }
+                },
+                {
+                    "name": "23",
+                    "path": "23-1.mp3",
+                    "description": {
+                        "zh-CN": "你好，我很可爱，请给我钱（中文）",
+                        "ja-JP": "可愛いから、お金ください（中国語）"
+                    }
+                },
+                {
+                    "name": "24",
+                    "path": "24-1.mp3",
+                    "description": {
+                        "zh-CN": "你好我很可爱",
+                        "ja-JP": "めあかわいい（中国語）"
+                    }
+                },
+                {
+                    "name": "25",
+                    "path": "25-1.mp3",
+                    "description": {
+                        "zh-CN": "你好我很可爱（二重禁忌）",
+                        "ja-JP": "めあかわいいx２（中国語）"
+                    }
+                },
+                {
+                    "name": "26",
+                    "path": "26-1.mp3",
+                    "description": {
+                        "zh-CN": "你好我很可爱（三重禁忌）",
+                        "ja-JP": "めあかわいいx３（中国語）"
+                    }
+                },
+                {
+                    "name": "27",
+                    "path": "27-1.mp3",
+                    "description": {
+                        "zh-CN": "我很可爱",
+                        "ja-JP": "かわいいめあ（中国語）"
+                    }
+                },
+                {
+                    "name": "m0614-28",
+                    "path": "m0614-28.mp3",
+                    "description": {
+                        "zh-CN": "mea好大",
+                        "ja-JP": "めあでかい"
+                    }
+                },
+                {
+                    "name": "m0614-29",
+                    "path": "m0614-29.mp3",
+                    "description": {
+                        "zh-CN": "mea好碍事",
+                        "ja-JP": "めあ邪魔"
+                    }
+                },
+                {
+                    "name": "m0614-30",
+                    "path": "m0614-30.mp3",
+                    "description": {
+                        "zh-CN": "什么情况啊",
+                        "ja-JP": "什么情况啊"
+                    }
+                },
+                {
+                    "name": "m0614-31",
+                    "path": "m0614-31.mp3",
+                    "description": {
+                        "zh-CN": "什么，什么，说了什么",
+                        "ja-JP": "何言ってんの？"
+                    }
+                },
+                {
+                    "name": "m0614-32",
+                    "path": "m0614-32.mp3",
+                    "description": {
+                        "zh-CN": "刚才那是啾啦",
+                        "ja-JP": "「ちゅ」だからね"
+                    }
+                },
+                {
+                    "name": "m0614-33",
+                    "path": "m0614-33.mp3",
+                    "description": {
+                        "zh-CN": "可怕，超可怕",
+                        "ja-JP": "めちゃ怖い"
+                    }
+                },
+                {
+                    "name": "m0614-34",
+                    "path": "m0614-34.mp3",
+                    "description": {
+                        "zh-CN": "可爱吗？",
+                        "ja-JP": "かわいい？"
+                    }
+                },
+                {
+                    "name": "m0614-35",
+                    "path": "m0614-35.mp3",
+                    "description": {
+                        "zh-CN": "啊哈↑",
+                        "ja-JP": "啊哈↑"
+                    }
+                },
+                {
+                    "name": "m0614-36",
+                    "path": "m0614-36.mp3",
+                    "description": {
+                        "zh-CN": "啊，有点可怕，等等",
+                        "ja-JP": "え、めちゃ怖い、ちょっと待って"
+                    }
+                },
+                {
+                    "name": "m0614-38",
+                    "path": "m0614-38.mp3",
+                    "description": {
+                        "zh-CN": "大家的女仆——神楽めあ的说",
+                        "ja-JP": "みんなのメイドさん、神楽めあです～"
+                    }
+                },
+                {
+                    "name": "m0614-40",
+                    "path": "m0614-40.mp3",
+                    "description": {
+                        "zh-CN": "开始了",
+                        "ja-JP": "来ます！"
+                    }
+                },
+                {
+                    "name": "m0614-41",
+                    "path": "m0614-41.mp3",
+                    "description": {
+                        "zh-CN": "我爱你",
+                        "ja-JP": "あいしてる"
+                    }
+                },
+                {
+                    "name": "m0614-42",
+                    "path": "m0614-42.mp3",
+                    "description": {
+                        "zh-CN": "是会啾的哦，Mea我",
+                        "ja-JP": "「ちゅ」するよ、めあは"
+                    }
+                },
+                {
+                    "name": "m0614-43",
+                    "path": "m0614-43.mp3",
+                    "description": {
+                        "zh-CN": "是小小的屁股哦（萌音）",
+                        "ja-JP": "是小小的屁股哦（萌音）"
+                    }
+                },
+                {
+                    "name": "m0614-44",
+                    "path": "m0614-44.mp3",
+                    "description": {
+                        "zh-CN": "模仿打呼噜",
+                        "ja-JP": "模仿打呼噜"
+                    }
+                },
+                {
+                    "name": "m0614-45",
+                    "path": "m0614-45.mp3",
+                    "description": {
+                        "zh-CN": "看不到mea？",
+                        "ja-JP": "めあ見えない？"
+                    }
+                },
+                {
+                    "name": "m0614-46",
+                    "path": "m0614-46.mp3",
+                    "description": {
+                        "zh-CN": "诶，妈妈……",
+                        "ja-JP": "ママーー"
+                    }
+                },
+                {
+                    "name": "m0614-48",
+                    "path": "m0614-48.mp3",
+                    "description": {
+                        "zh-CN": "诶？mea酱好可爱",
+                        "ja-JP": "え？めあちゃんかわいい～"
+                    }
+                },
+                {
+                    "name": "m0614-49",
+                    "path": "m0614-49.mp3",
+                    "description": {
+                        "zh-CN": "那就安心了呢~mua~最喜欢了",
+                        "ja-JP": "那就安心了呢~mua~最喜欢了"
+                    }
+                },
+                {
+                    "name": "m0614-50",
+                    "path": "m0614-50.mp3",
+                    "description": {
+                        "zh-CN": "（打喷嚏）",
+                        "ja-JP": "（くしゃみ）"
+                    }
+                },
+                {
+                    "name": "m0629-10",
+                    "path": "m0629-10.mp3",
+                    "description": {
+                        "zh-CN": "bebu~bebububu（模仿伊布叫声）",
+                        "ja-JP": "ブイーイブイーイ！"
+                    }
+                },
+                {
+                    "name": "m0629-11",
+                    "path": "m0629-11.mp3",
+                    "description": {
+                        "zh-CN": "mea大人哦",
+                        "ja-JP": "めあさまよ"
+                    }
+                },
+                {
+                    "name": "m0629-12",
+                    "path": "m0629-12.mp3",
+                    "description": {
+                        "zh-CN": "咩~咩~咩",
+                        "ja-JP": "めぇ―めぇ―めぇ―"
+                    }
+                },
+                {
+                    "name": "m0629-13",
+                    "path": "m0629-13.mp3",
+                    "description": {
+                        "zh-CN": "皮卡皮卡~皮卡丘~",
+                        "ja-JP": "ピカピカ、ピカチュウ！"
+                    }
+                }
+            ]
+        },
+        {
+            "categoryName": "meaqua",
+            "categoryDescription": {
+                "zh-CN": "meaqua",
+                "ja-JP": "めあくあ"
+            },
+            "voiceList": [
+                {
+                    "name": "28",
+                    "path": "28-1.mp3",
+                    "description": {
+                        "zh-CN": "阿夸酱能更可爱一点就好了啦~",
+                        "ja-JP": "もうちょっとあくあちゃん可愛かったらな"
+                    }
+                },
+                {
+                    "name": "29",
+                    "path": "29-1.mp3",
+                    "description": {
+                        "zh-CN": "不辛苦哟 只是觉得你狠可爱而已（对夸）",
+                        "ja-JP": "しんどくないよ、かわいいな、ってだけだよ"
+                    }
+                },
+                {
+                    "name": "30",
+                    "path": "30-1.mp3",
+                    "description": {
+                        "zh-CN": "快点 接线",
+                        "ja-JP": "早く、でろ"
+                    }
+                },
+                {
+                    "name": "31",
+                    "path": "31-1.mp3",
+                    "description": {
+                        "zh-CN": "喂，凑阿库娅",
+                        "ja-JP": "おい！みなつあくあ"
+                    }
+                },
+                {
+                    "name": "32",
+                    "path": "32-1.mp3",
+                    "description": {
+                        "zh-CN": "喂，肥猪",
+                        "ja-JP": "おい、豚"
+                    }
+                },
+                {
+                    "name": "33",
+                    "path": "33-1.mp3",
+                    "description": {
+                        "zh-CN": "喂~debu~",
+                        "ja-JP": "おい！デブ"
+                    }
+                },
+                {
+                    "name": "70",
+                    "path": "70-1.mp3",
+                    "description": {
+                        "zh-CN": "最喜欢呢，是非常强烈的喜欢呢",
+                        "ja-JP": "大好きだね、すごい大好きだね"
+                    }
+                },
+                {
+                    "name": "m0614-51",
+                    "path": "m0614-51.mp3",
+                    "description": {
+                        "zh-CN": "小圆老师梗1",
+                        "ja-JP": "小圆老师梗1"
+                    }
+                },
+                {
+                    "name": "m0614-52",
+                    "path": "m0614-52.mp3",
+                    "description": {
+                        "zh-CN": "小圆老师梗2",
+                        "ja-JP": "小圆老师梗2"
+                    }
+                },
+                {
+                    "name": "m0614-53",
+                    "path": "m0614-53.mp3",
+                    "description": {
+                        "zh-CN": "小圆老师梗3",
+                        "ja-JP": "小圆老师梗3"
+                    }
+                },
+                {
+                    "name": "m0614-59",
+                    "path": "m0614-59.mp3",
+                    "description": {
+                        "zh-CN": "小圆老师梗4",
+                        "ja-JP": "小圆老师梗4"
+                    }
+                },
+                {
+                    "name": "m0614-54",
+                    "path": "m0614-54.mp3",
+                    "description": {
+                        "zh-CN": "mea摸aqua大腿",
+                        "ja-JP": "mea摸aqua大腿"
+                    }
+                },
+                {
+                    "name": "m0614-55",
+                    "path": "m0614-55.mp3",
+                    "description": {
+                        "zh-CN": "aqua↑",
+                        "ja-JP": "aqua↑"
+                    }
+                },
+                {
+                    "name": "m0614-56",
+                    "path": "m0614-56.mp3",
+                    "description": {
+                        "zh-CN": "对不起阿夸",
+                        "ja-JP": "对不起阿夸"
+                    }
+                },
+                {
+                    "name": "m0614-57",
+                    "path": "m0614-57.mp3",
+                    "description": {
+                        "zh-CN": "对不起阿夸我爱你",
+                        "ja-JP": "对不起阿夸我爱你"
+                    }
+                },
+                {
+                    "name": "m0614-58",
+                    "path": "m0614-58.mp3",
+                    "description": {
+                        "zh-CN": "对不起（笨蛋）",
+                        "ja-JP": "对不起（笨蛋）"
+                    }
+                },
+                {
+                    "name": "m0614-60",
+                    "path": "m0614-60.mp3",
+                    "description": {
+                        "zh-CN": "我可是一直在等着明天这个aquaweek结束呢www",
+                        "ja-JP": "我可是一直在等着明天这个aquaweek结束呢www"
+                    }
+                },
+                {
+                    "name": "m0614-61",
+                    "path": "m0614-61.mp3",
+                    "description": {
+                        "zh-CN": "我和阿库娅在用心灵对话",
+                        "ja-JP": "我和阿库娅在用心灵对话"
+                    }
+                },
+                {
+                    "name": "m0614-62",
+                    "path": "m0614-62.mp3",
+                    "description": {
+                        "zh-CN": "没事的阿库娅酱，谁都没有生气",
+                        "ja-JP": "没事的阿库娅酱，谁都没有生气"
+                    }
+                },
+                {
+                    "name": "m0614-63",
+                    "path": "m0614-63.mp3",
+                    "description": {
+                        "zh-CN": "阿夸不在了你让我怎么战斗啊",
+                        "ja-JP": "阿夸不在了你让我怎么战斗啊"
+                    }
+                },
+                {
+                    "name": "m0614-64",
+                    "path": "m0614-64.mp3",
+                    "description": {
+                        "zh-CN": "阿夸给我回来啊",
+                        "ja-JP": "阿夸给我回来啊"
+                    }
+                },
+                {
+                    "name": "m0614-65",
+                    "path": "m0614-65.mp3",
+                    "description": {
+                        "zh-CN": "阿夸能行的",
+                        "ja-JP": "阿夸能行的"
+                    }
+                },
+                {
+                    "name": "m0614-66",
+                    "path": "m0614-66.mp3",
+                    "description": {
+                        "zh-CN": "阿夸（不舍）",
+                        "ja-JP": "阿夸（不舍）"
+                    }
+                },
+                {
+                    "name": "m0614-67",
+                    "path": "m0614-67.mp3",
+                    "description": {
+                        "zh-CN": "阿夸（丧气）",
+                        "ja-JP": "阿夸（丧气）"
+                    }
+                },
+                {
+                    "name": "m0614-68",
+                    "path": "m0614-68.mp3",
+                    "description": {
+                        "zh-CN": "阿夸（恼怒）",
+                        "ja-JP": "阿夸（恼怒）"
+                    }
+                },
+                {
+                    "name": "m0614-69",
+                    "path": "m0614-69.mp3",
+                    "description": {
+                        "zh-CN": "阿库娅今天很可爱呢",
+                        "ja-JP": "阿库娅今天很可爱呢"
+                    }
+                },
+                {
+                    "name": "m0614-70",
+                    "path": "m0614-70.mp3",
+                    "description": {
+                        "zh-CN": "阿库娅就是阿库娅嘛",
+                        "ja-JP": "阿库娅就是阿库娅嘛"
+                    }
+                },
+                {
+                    "name": "m0629-14",
+                    "path": "m0629-14.mp3",
+                    "description": {
+                        "zh-CN": "好慢哦",
+                        "ja-JP": "おせいよ"
+                    }
+                }
+            ]
+        },
+        {
+            "categoryName": "encourage",
+            "categoryDescription": {
+                "zh-CN": "鼓励",
+                "ja-JP": "励まします"
+            },
+            "voiceList": [
+                {
+                    "name": "34",
+                    "path": "34-1.mp3",
+                    "description": {
+                        "zh-CN": "大夫！有医生吗？！这里 这里有医生在场吗？！",
+                        "ja-JP": "先生！お医者さんはいませんか！この中に、この中に、お医者様がいらっしゃいませんか？"
+                    }
+                },
+                {
+                    "name": "35",
+                    "path": "35-1.mp3",
+                    "description": {
+                        "zh-CN": "大家都在努力，mea也要加把劲",
+                        "ja-JP": "みんな頑張ってるから、めあも頑張ろうと思ったのか"
+                    }
+                },
+                {
+                    "name": "36",
+                    "path": "36-1.mp3",
+                    "description": {
+                        "zh-CN": "敌人桑在哪里呢 啊锵啪啪啪啪（萌音）",
+                        "ja-JP": "どの辺に敵さんがいるのでしょうか。あ、チャッパパパ"
+                    }
+                },
+                {
+                    "name": "37",
+                    "path": "37-1.mp3",
+                    "description": {
+                        "zh-CN": "给我去工作！",
+                        "ja-JP": "働け！"
+                    }
+                },
+                {
+                    "name": "38",
+                    "path": "38-1.mp3",
+                    "description": {
+                        "zh-CN": "你们不能嘲讽mea，但是mea可以嘲讽你们，懂了吗？",
+                        "ja-JP": "君たちはめあのこと煽じゃダメ、めあは君たちのこと煽って良い、わかったかね"
+                    }
+                },
+                {
+                    "name": "39",
+                    "path": "39-1.mp3",
+                    "description": {
+                        "zh-CN": "你们脑袋上的螺丝是送掉了吗？！",
+                        "ja-JP": "頭のネジ抜けすぎちゃいますか"
+                    }
+                },
+                {
+                    "name": "40",
+                    "path": "40-1.mp3",
+                    "description": {
+                        "zh-CN": "愚蠢的人类啊！",
+                        "ja-JP": "これだから人間はよ"
+                    }
+                },
+                {
+                    "name": "41",
+                    "path": "41-1.mp3",
+                    "description": {
+                        "zh-CN": "真的是脑子有病啊！",
+                        "ja-JP": "もう頭おかしい"
+                    }
+                },
+                {
+                    "name": "68",
+                    "path": "68-1.mp3",
+                    "description": {
+                        "zh-CN": "碍事！把你的肥肉收紧点！",
+                        "ja-JP": "邪魔なんだが、肉をしまえ！"
+                    }
+                },
+                {
+                    "name": "69",
+                    "path": "69-1.mp3",
+                    "description": {
+                        "zh-CN": "mea我才不承认!!!"
+                    }
+                },
+                {
+                    "name": "m0614-19",
+                    "path": "m0614-19.mp3",
+                    "description": {
+                        "zh-CN": "kimo",
+                        "ja-JP": "kimo"
+                    }
+                },
+                {
+                    "name": "m0614-20",
+                    "path": "m0614-20.mp3",
+                    "description": {
+                        "zh-CN": "为什么要说那样的话呢？",
+                        "ja-JP": "为什么要说那样的话呢？"
+                    }
+                },
+                {
+                    "name": "m0614-21",
+                    "path": "m0614-21.mp3",
+                    "description": {
+                        "zh-CN": "为什么要说那种话呢？",
+                        "ja-JP": "なんでそんなこと言うですか？"
+                    }
+                },
+                {
+                    "name": "m0614-23",
+                    "path": "m0614-23.mp3",
+                    "description": {
+                        "zh-CN": "你们会买吗",
+                        "ja-JP": "買って来る？"
+                    }
+                },
+                {
+                    "name": "m0614-27",
+                    "path": "m0614-27.mp3",
+                    "description": {
+                        "zh-CN": "吵死了闭嘴笨蛋",
+                        "ja-JP": "吵死了闭嘴笨蛋"
+                    }
+                },
+                {
+                    "name": "m0629-4",
+                    "path": "m0629-4.mp3",
+                    "description": {
+                        "zh-CN": "你们以为mea是谁？",
+                        "ja-JP": "めあのことだれだと思ているの？"
+                    }
+                },
+                {
+                    "name": "m0629-5",
+                    "path": "m0629-5.mp3",
+                    "description": {
+                        "zh-CN": "你们只要能听到mea的声音就满足了吧",
+                        "ja-JP": "めあの声がお聞きれば何でもいいだろう？君たちは"
+                    }
+                },
+                {
+                    "name": "m0629-6",
+                    "path": "m0629-6.mp3",
+                    "description": {
+                        "zh-CN": "你们是不是有点太嚣张了？",
+                        "ja-JP": "みなおりすぎじゃない？"
+                    }
+                },
+                {
+                    "name": "m0629-7",
+                    "path": "m0629-7.mp3",
+                    "description": {
+                        "zh-CN": "你们脑门上的螺丝松了吗？",
+                        "ja-JP": "君たち頭のねじゆるゆるですか？"
+                    }
+                },
+                {
+                    "name": "m0629-8",
+                    "path": "m0629-8.mp3",
+                    "description": {
+                        "zh-CN": "你们觉得是我的错还是你们的错？",
+                        "ja-JP": "わたしとみなさんどちが悪いと思いますか？"
+                    }
+                },
+                {
+                    "name": "m0629-9",
+                    "path": "m0629-9.mp3",
+                    "description": {
+                        "zh-CN": "全都是观众的错",
+                        "ja-JP": "全て、視聴者の責任と思う"
+                    }
+                }
+            ]
+        },
+        {
+            "categoryName": "neta",
+            "categoryDescription": {
+                "zh-CN": "传统艺能",
+                "ja-JP": "伝統芸能"
+            },
+            "voiceList": [
+                {
+                    "name": "42",
+                    "path": "42-1.mp3",
+                    "description": {
+                        "zh-CN": "不存在的",
+                        "ja-JP": "これはないわ"
+                    }
+                },
+                {
+                    "name": "43",
+                    "path": "43-1.mp3",
+                    "description": {
+                        "zh-CN": "不播不行了",
+                        "ja-JP": "配信しなっきゃ"
+                    }
+                },
+                {
+                    "name": "44",
+                    "path": "44-1.mp3",
+                    "description": {
+                        "zh-CN": "不行了，不行了，哈哈",
+                        "ja-JP": "だめだ、だめだ、だめだ"
+                    }
+                },
+                {
+                    "name": "45",
+                    "path": "45-1.mp3",
+                    "description": {
+                        "zh-CN": "非常难为情，不妙",
+                        "ja-JP": "めっちゃ恥ずかしい、やばい"
+                    }
+                },
+                {
+                    "name": "46",
+                    "path": "46-1.mp3",
+                    "description": {
+                        "zh-CN": "今天不能直播了！",
+                        "ja-JP": "今日放送出来なくなっちゃった"
+                    }
+                },
+                {
+                    "name": "47",
+                    "path": "47-1.mp3",
+                    "description": {
+                        "zh-CN": "money（100刀）",
+                        "ja-JP": "マネー、マネー、マネー（100ドル）"
+                    }
+                },
+                {
+                    "name": "48",
+                    "path": "48-1.mp3",
+                    "description": {
+                        "zh-CN": "money（500刀）",
+                        "ja-JP": "マネー、マネー、マネー（500ドル）"
+                    }
+                },
+                {
+                    "name": "49",
+                    "path": "49-1.mp3",
+                    "description": {
+                        "zh-CN": "哇播了好多",
+                        "ja-JP": "ワッ、めっちゃ配信、したわ"
+                    }
+                },
+                {
+                    "name": "50",
+                    "path": "50-1.mp3",
+                    "description": {
+                        "zh-CN": "谢谢茄子",
+                        "ja-JP": "シェーシェーなす（ありがとうなす）"
+                    }
+                },
+                {
+                    "name": "51",
+                    "path": "51-1.mp3",
+                    "description": {
+                        "zh-CN": "再来一个 杠、杠、杠 岭上开放（wwww）",
+                        "ja-JP": "もう一個、カン、カン、カン！嶺上開放！"
+                    }
+                },
+                {
+                    "name": "52",
+                    "path": "52-1.mp3",
+                    "description": {
+                        "zh-CN": "直播了多少次",
+                        "ja-JP": "何回配信した？"
+                    }
+                },
+                {
+                    "name": "53",
+                    "path": "53-1.mp3",
+                    "description": {
+                        "zh-CN": "这种事很羞耻啊",
+                        "ja-JP": "すごい恥ずかしいじゃん、そんなの"
+                    }
+                },
+                {
+                    "name": "m0614-116",
+                    "path": "m0614-116.mp3",
+                    "description": {
+                        "zh-CN": "绝对是在把人当傻子啊",
+                        "ja-JP": "ひとのことバガにしてだよ"
+                    }
+                },
+                {
+                    "name": "m0629-26",
+                    "path": "m0629-26.mp3",
+                    "description": {
+                        "zh-CN": "一点也不污",
+                        "ja-JP": "きたなく（ない）"
+                    }
+                },
+                {
+                    "name": "m0629-27",
+                    "path": "m0629-27.mp3",
+                    "description": {
+                        "zh-CN": "为什么要说那样的话呢？",
+                        "ja-JP": "何でそういうこと言うの？"
+                    }
+                },
+                {
+                    "name": "m0629-28",
+                    "path": "m0629-28.mp3",
+                    "description": {
+                        "zh-CN": "交给我吧",
+                        "ja-JP": "任せて"
+                    }
+                },
+                {
+                    "name": "m0629-29",
+                    "path": "m0629-29.mp3",
+                    "description": {
+                        "zh-CN": "是我的错吗？",
+                        "ja-JP": "わたしの悪いかな？"
+                    }
+                }
+            ]
+        },
+        {
+            "categoryName": "other",
+            "categoryDescription": {
+                "zh-CN": "其他",
+                "en-US": "Other",
+                "ja-JP": "その他"
+            },
+            "voiceList": [
+                {
+                    "name": "54",
+                    "path": "54-1.mp3",
+                    "description": {
+                        "zh-CN": "mea把茶水打翻了啊！！",
+                        "ja-JP": "めあお茶倒した！"
+                    }
+                },
+                {
+                    "name": "55",
+                    "path": "55-1.mp3",
+                    "description": {
+                        "zh-CN": "明明mea什么也没做错···！",
+                        "ja-JP": "めあ悪くないでも"
+                    }
+                },
+                {
+                    "name": "56",
+                    "path": "56-1.mp3",
+                    "description": {
+                        "zh-CN": "请不要丢下mea一个人啊！！",
+                        "ja-JP": "めあをもう一人じゃないで下さい"
+                    }
+                },
+                {
+                    "name": "57",
+                    "path": "57-1.mp3",
+                    "description": {
+                        "zh-CN": "呜呼QAQ……真浪费~~!",
+                        "ja-JP": "うふうQAQ……もったいない！"
+                    }
+                },
+                {
+                    "name": "58",
+                    "path": "58-1.mp3",
+                    "description": {
+                        "zh-CN": "哇，好酸",
+                        "ja-JP": "うわー、酸っぱい"
+                    }
+                },
+                {
+                    "name": "59",
+                    "path": "59-1.mp3",
+                    "description": {
+                        "zh-CN": "早上好",
+                        "ja-JP": "おはよう"
+                    }
+                },
+                {
+                    "name": "60",
+                    "path": "60-1.mp3",
+                    "description": {
+                        "zh-CN": "珍↑纷↓汉↑纷↓",
+                        "ja-JP": "チンポンかぽん〜"
+                    }
+                },
+                {
+                    "name": "66",
+                    "path": "66-1.mp3",
+                    "description": {
+                        "zh-CN": "你好，日安",
+                        "ja-JP": "どうも、こんにちは"
+                    }
+                },
+                {
+                    "name": "67",
+                    "path": "67-1.mp3",
+                    "description": {
+                        "zh-CN": "初次见面，我叫卡古拉咩阿",
+                        "ja-JP": "はじめまして、神楽めあと申します"
+                    }
+                },
+                {
+                    "name": "m0614-117",
+                    "path": "m0614-117.mp3",
+                    "description": {
+                        "zh-CN": "hololive",
+                        "ja-JP": "ホロライブ"
+                    }
+                },
+                {
+                    "name": "m0614-118",
+                    "path": "m0614-118.mp3",
+                    "description": {
+                        "zh-CN": "刚刚浑身起鸡皮疙瘩了",
+                        "ja-JP": "刚刚浑身起鸡皮疙瘩了"
+                    }
+                },
+                {
+                    "name": "m0614-119",
+                    "path": "m0614-119.mp3",
+                    "description": {
+                        "zh-CN": "又出现了啊",
+                        "ja-JP": "また出ちゃった"
+                    }
+                },
+                {
+                    "name": "m0614-120",
+                    "path": "m0614-120.mp3",
+                    "description": {
+                        "zh-CN": "蹦蹦蹦蹦蹦蹦蹦蹦",
+                        "ja-JP": "蹦蹦蹦蹦蹦蹦蹦蹦"
+                    }
+                },
+                {
+                    "name": "m0614-121",
+                    "path": "m0614-121.mp3",
+                    "description": {
+                        "zh-CN": "可以继续了吗",
+                        "ja-JP": "進んでいい？"
+                    }
+                },
+                {
+                    "name": "m0614-122",
+                    "path": "m0614-122.mp3",
+                    "description": {
+                        "zh-CN": "哇好吵，吓死我了",
+                        "ja-JP": "うるせぇ、びっくりした..."
+                    }
+                },
+                {
+                    "name": "m0614-123",
+                    "path": "m0614-123.mp3",
+                    "description": {
+                        "zh-CN": "哪个，是哪个",
+                        "ja-JP": "どれ？？"
+                    }
+                },
+                {
+                    "name": "m0614-124",
+                    "path": "m0614-124.mp3",
+                    "description": {
+                        "zh-CN": "嘛...小心一点比较好",
+                        "ja-JP": "気を付けたほうがいい"
+                    }
+                },
+                {
+                    "name": "m0614-125",
+                    "path": "m0614-125.mp3",
+                    "description": {
+                        "zh-CN": "好耶，轮到衣坐庄咯",
+                        "ja-JP": "好耶，轮到衣坐庄咯"
+                    }
+                },
+                {
+                    "name": "m0614-126",
+                    "path": "m0614-126.mp3",
+                    "description": {
+                        "zh-CN": "完全没有在生气啦",
+                        "ja-JP": "全然怒ってない"
+                    }
+                },
+                {
+                    "name": "m0614-127",
+                    "path": "m0614-127.mp3",
+                    "description": {
+                        "zh-CN": "我就想“玩玩恐怖游戏吧”",
+                        "ja-JP": "我就想“玩玩恐怖游戏吧”"
+                    }
+                },
+                {
+                    "name": "m0614-128",
+                    "path": "m0614-128.mp3",
+                    "description": {
+                        "zh-CN": "我超级讨厌这个的",
+                        "ja-JP": "これめちゃいや..."
+                    }
+                },
+                {
+                    "name": "m0614-129",
+                    "path": "m0614-129.mp3",
+                    "description": {
+                        "zh-CN": "放这里可以吗",
+                        "ja-JP": "放这里可以吗"
+                    }
+                },
+                {
+                    "name": "m0614-131",
+                    "path": "m0614-131.mp3",
+                    "description": {
+                        "zh-CN": "普通的不行，普通的不行noiya",
+                        "ja-JP": "普通に無理なのじあ"
+                    }
+                },
+                {
+                    "name": "m0614-133",
+                    "path": "m0614-133.mp3",
+                    "description": {
+                        "zh-CN": "有没有品味啊？",
+                        "ja-JP": "センス感じてる？"
+                    }
+                },
+                {
+                    "name": "m0614-134",
+                    "path": "m0614-134.mp3",
+                    "description": {
+                        "zh-CN": "那就再加把劲吧",
+                        "ja-JP": "もう一度頑張るか"
+                    }
+                },
+                {
+                    "name": "m0629-30",
+                    "path": "m0629-30.mp3",
+                    "description": {
+                        "zh-CN": "电脑坏掉了",
+                        "ja-JP": "壊れちゃったパソコン"
+                    }
+                }
+            ]
+        },
+        {
+            "categoryName": "common",
+            "categoryDescription": {
+                "zh-CN": "通用",
+                "en-US": "Common",
+                "ja-JP": "通常"
+            },
+            "voiceList": [
+                {
+                    "name": "m0614-5",
+                    "path": "m0614-5.mp3",
+                    "description": {
+                        "zh-CN": "上吧",
+                        "ja-JP": "行くぞ！"
+                    }
+                },
+                {
+                    "name": "m0614-6",
+                    "path": "m0614-6.mp3",
+                    "description": {
+                        "zh-CN": "不好意系（思）",
+                        "ja-JP": "すみません"
+                    }
+                },
+                {
+                    "name": "m0614-8",
+                    "path": "m0614-8.mp3",
+                    "description": {
+                        "zh-CN": "你的..",
+                        "ja-JP": "你的.."
+                    }
+                },
+                {
+                    "name": "m0614-9",
+                    "path": "m0614-9.mp3",
+                    "description": {
+                        "zh-CN": "到底该怎么办？",
+                        "ja-JP": "どうしだらいいだろ"
+                    }
+                },
+                {
+                    "name": "m0614-10",
+                    "path": "m0614-10.mp3",
+                    "description": {
+                        "zh-CN": "大家都不懂，大家都不懂mea有多怕",
+                        "ja-JP": "大家都不懂，大家都不懂mea有多怕"
+                    }
+                },
+                {
+                    "name": "m0614-11",
+                    "path": "m0614-11.mp3",
+                    "description": {
+                        "zh-CN": "妈妈说了什么",
+                        "ja-JP": "ママは何言ってんの？"
+                    }
+                },
+                {
+                    "name": "m0614-12",
+                    "path": "m0614-12.mp3",
+                    "description": {
+                        "zh-CN": "对不起",
+                        "ja-JP": "ごめんな"
+                    }
+                },
+                {
+                    "name": "m0614-13",
+                    "path": "m0614-13.mp3",
+                    "description": {
+                        "zh-CN": "对不起哦，脑袋笨笨地w (。●ω-)",
+                        "ja-JP": "对不起哦，脑袋笨笨地w (。●ω-)"
+                    }
+                },
+                {
+                    "name": "m0614-14",
+                    "path": "m0614-14.mp3",
+                    "description": {
+                        "zh-CN": "感觉不错？",
+                        "ja-JP": "いい感じ？"
+                    }
+                },
+                {
+                    "name": "m0614-15",
+                    "path": "m0614-15.mp3",
+                    "description": {
+                        "zh-CN": "欢迎回来，主人",
+                        "ja-JP": "お帰りなさいませ,ご主人様"
+                    }
+                },
+                {
+                    "name": "m0614-17",
+                    "path": "m0614-17.mp3",
+                    "description": {
+                        "zh-CN": "请听",
+                        "ja-JP": "聞いてください！"
+                    }
+                },
+                {
+                    "name": "m0629-1",
+                    "path": "m0629-1.mp3",
+                    "description": {
+                        "zh-CN": "不是那个意思啦",
+                        "ja-JP": "そういう意味じゃないんだ"
+                    }
+                },
+                {
+                    "name": "m0629-2",
+                    "path": "m0629-2.mp3",
+                    "description": {
+                        "zh-CN": "打ち込み",
+                        "ja-JP": "打ち込み"
+                    }
+                },
+                {
+                    "name": "m0629-3",
+                    "path": "m0629-3.mp3",
+                    "description": {
+                        "zh-CN": "连接成功",
+                        "ja-JP": "テスト完了"
+                    }
+                }
+            ]
+        },
+        {
+            "categoryName": "saying",
+            "categoryDescription": {
+                "zh-CN": "名言",
+                "en-US": "Saying",
+                "ja-JP": "名言"
+            },
+            "voiceList": [
+                {
+                    "name": "m0614-135",
+                    "path": "m0614-135.mp3",
+                    "description": {
+                        "zh-CN": "mea什么都没有做错",
+                        "ja-JP": "めあは何も悪くない"
+                    }
+                },
+                {
+                    "name": "m0614-136",
+                    "path": "m0614-136.mp3",
+                    "description": {
+                        "zh-CN": "mea怎么可能会做那种事情嘛",
+                        "ja-JP": "そうなことめあがするわけない"
+                    }
+                },
+                {
+                    "name": "m0614-137",
+                    "path": "m0614-137.mp3",
+                    "description": {
+                        "zh-CN": "mea的病毒一定很想要吧",
+                        "ja-JP": "めあのウイルス欲しい"
+                    }
+                },
+                {
+                    "name": "m0614-139",
+                    "path": "m0614-139.mp3",
+                    "description": {
+                        "zh-CN": "一起来玩吧",
+                        "ja-JP": "やろうぜ！一緒に"
+                    }
+                },
+                {
+                    "name": "m0614-142",
+                    "path": "m0614-142.mp3",
+                    "description": {
+                        "zh-CN": "又要被炎上吗？",
+                        "ja-JP": "又要被炎上吗？"
+                    }
+                },
+                {
+                    "name": "m0614-143",
+                    "path": "m0614-143.mp3",
+                    "description": {
+                        "zh-CN": "呜诶，白痴，我怎么可能这样被吓到呢，白痴",
+                        "ja-JP": "呜诶，白痴，我怎么可能这样被吓到呢，白痴"
+                    }
+                },
+                {
+                    "name": "m0614-144",
+                    "path": "m0614-144.mp3",
+                    "description": {
+                        "zh-CN": "已经道歉了能原谅我吗",
+                        "ja-JP": "已经道歉了能原谅我吗"
+                    }
+                },
+                {
+                    "name": "m0614-145",
+                    "path": "m0614-145.mp3",
+                    "description": {
+                        "zh-CN": "心里突然噔咚地一下",
+                        "ja-JP": "心里突然噔咚地一下"
+                    }
+                },
+                {
+                    "name": "m0614-146",
+                    "path": "m0614-146.mp3",
+                    "description": {
+                        "zh-CN": "我也想成为偶像系VTuber啊",
+                        "ja-JP": "我也想成为偶像系VTuber啊"
+                    }
+                },
+                {
+                    "name": "m0614-147",
+                    "path": "m0614-147.mp3",
+                    "description": {
+                        "zh-CN": "我怎么说也算是个Vtuber啊",
+                        "ja-JP": "我怎么说也算是个Vtuber啊"
+                    }
+                },
+                {
+                    "name": "m0614-148",
+                    "path": "m0614-148.mp3",
+                    "description": {
+                        "zh-CN": "我说你好碍事啊，你在干嘛www",
+                        "ja-JP": "我说你好碍事啊，你在干嘛www"
+                    }
+                },
+                {
+                    "name": "m0614-149",
+                    "path": "m0614-149.mp3",
+                    "description": {
+                        "zh-CN": "捏，不行，mea不行，绝对不行，呜呜",
+                        "ja-JP": "めあ無理、絶対無理"
+                    }
+                },
+                {
+                    "name": "m0614-150",
+                    "path": "m0614-150.mp3",
+                    "description": {
+                        "zh-CN": "日语好难啊",
+                        "ja-JP": "日本語難しい"
+                    }
+                },
+                {
+                    "name": "m0614-151",
+                    "path": "m0614-151.mp3",
+                    "description": {
+                        "zh-CN": "没有好好理解你的心情",
+                        "ja-JP": "没有好好理解你的心情"
+                    }
+                },
+                {
+                    "name": "m0614-152",
+                    "path": "m0614-152.mp3",
+                    "description": {
+                        "zh-CN": "没有生气啦，以后要注意哦",
+                        "ja-JP": "没有生气啦，以后要注意哦"
+                    }
+                },
+                {
+                    "name": "m0614-153",
+                    "path": "m0614-153.mp3",
+                    "description": {
+                        "zh-CN": "没错，我就是我..",
+                        "ja-JP": "没错，我就是我.."
+                    }
+                },
+                {
+                    "name": "m0614-154",
+                    "path": "m0614-154.mp3",
+                    "description": {
+                        "zh-CN": "眼泪都要出来了",
+                        "ja-JP": "涙出てそう"
+                    }
+                },
+                {
+                    "name": "m0614-155",
+                    "path": "m0614-155.mp3",
+                    "description": {
+                        "zh-CN": "诶 等一下，真的真的，把我和哪个女人弄错了？喂，刺你哦",
+                        "ja-JP": "诶 等一下，真的真的，把我和哪个女人弄错了？喂，刺你哦"
+                    }
+                },
+                {
+                    "name": "m0614-156",
+                    "path": "m0614-156.mp3",
+                    "description": {
+                        "zh-CN": "诶抱歉，一不小心，大概是你太可爱就看入迷了",
+                        "ja-JP": "诶抱歉，一不小心，大概是你太可爱就看入迷了"
+                    }
+                },
+                {
+                    "name": "m0614-157",
+                    "path": "m0614-157.mp3",
+                    "description": {
+                        "zh-CN": "请不要炎上我",
+                        "ja-JP": "燃やさないで欲しい"
+                    }
+                },
+                {
+                    "name": "m0614-158",
+                    "path": "m0614-158.mp3",
+                    "description": {
+                        "zh-CN": "请不要骂我",
+                        "ja-JP": "たたかないで欲しい"
+                    }
+                },
+                {
+                    "name": "m0614-159",
+                    "path": "m0614-159.mp3",
+                    "description": {
+                        "zh-CN": "那肯定是在等可爱的女孩子",
+                        "ja-JP": "那肯定是在等可爱的女孩子"
+                    }
+                }
+            ]
+        }
+    ]
+}
