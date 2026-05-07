@@ -320,6 +320,15 @@ class ButtonPackRepository(
         val builtInPacks = loadBuiltInPacks().visibleBuiltInPacks()
         database.withTransaction {
             val dao = database.buttonPackDao()
+            builtInPacks.forEach { pack ->
+                val existing = dao.getPack(pack.id)
+                if (existing != null && !existing.isBuiltIn) {
+                    dao.deleteTriggerPhrasesForPack(pack.id)
+                    dao.deleteItemsForPack(pack.id)
+                    dao.deleteCategoriesForPack(pack.id)
+                    dao.deletePack(pack.id)
+                }
+            }
             dao.deleteBuiltInTriggerPhrases()
             dao.deleteBuiltInItems()
             dao.deleteBuiltInPacks()
@@ -735,6 +744,7 @@ class ButtonPackRepository(
         val assets = context.assets
         val aquaJson = assets.open("voices.json").bufferedReader().use { it.readText() }
         val meaJson = assets.open("mea_voices.json").bufferedReader().use { it.readText() }
+        val memeJson = assets.open("meme_voices.json").bufferedReader().use { it.readText() }
         return listOf(
             aquaJson.parseButtonPack(
                 packId = "aqua",
@@ -754,6 +764,16 @@ class ButtonPackRepository(
                 logoResId = R.drawable.main_logo,
                 assetPrefix = "mea_voices",
                 remoteBaseUrl = MEA_VOICE_BASE_URL,
+                isBuiltIn = true
+            ),
+            memeJson.parseButtonPack(
+                packId = "myinstants-meme-pack",
+                packName = "MyInstants Meme Pack",
+                author = "MyInstants user uploads, collected locally",
+                description = "Bundled local meme sound pack. Verify rights before redistribution.",
+                logoResId = R.drawable.main_logo,
+                assetPrefix = "meme_voices",
+                remoteBaseUrl = "",
                 isBuiltIn = true
             )
         )

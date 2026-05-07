@@ -1,0 +1,336 @@
+{
+  "voices": [
+    {
+      "categoryName": "cn_memes",
+      "categoryDescription": {
+        "zh-CN": "中文梗",
+        "en-US": "中文梗"
+      },
+      "voiceList": [
+        {
+          "name": "电棍-电棍",
+          "description": {
+            "zh-CN": "电棍",
+            "en-US": "电棍"
+          },
+          "path": "c0/i0.mp3"
+        },
+        {
+          "name": "电棍-电棍-冲刺冲刺",
+          "description": {
+            "zh-CN": "电棍-冲刺冲刺",
+            "en-US": "电棍-冲刺冲刺"
+          },
+          "path": "c0/i1.mp3"
+        },
+        {
+          "name": "丁真-丁真",
+          "description": {
+            "zh-CN": "丁真",
+            "en-US": "丁真"
+          },
+          "path": "c0/i2.mp3"
+        },
+        {
+          "name": "丁真-丁真听叫声",
+          "description": {
+            "zh-CN": "丁真听叫声",
+            "en-US": "丁真听叫声"
+          },
+          "path": "c0/i3.mp3"
+        },
+        {
+          "name": "丁真-雪豹叫声",
+          "description": {
+            "zh-CN": "雪豹叫声",
+            "en-US": "雪豹叫声"
+          },
+          "path": "c0/i4.mp3"
+        },
+        {
+          "name": "丁真-这是雪豹",
+          "description": {
+            "zh-CN": "这是雪豹",
+            "en-US": "这是雪豹"
+          },
+          "path": "c0/i5.mp3"
+        }
+      ]
+    },
+    {
+      "categoryName": "soulsborne",
+      "categoryDescription": {
+        "zh-CN": "Dark Souls / 魂系",
+        "en-US": "Dark Souls / 魂系"
+      },
+      "voiceList": [
+        {
+          "name": "dark-souls-dark-souls---hello-carving",
+          "description": {
+            "zh-CN": "Dark Souls - Hello Carving",
+            "en-US": "Dark Souls - Hello Carving"
+          },
+          "path": "c1/i0.mp3"
+        },
+        {
+          "name": "dark-souls-dark-souls---pain",
+          "description": {
+            "zh-CN": "Dark Souls - Pain",
+            "en-US": "Dark Souls - Pain"
+          },
+          "path": "c1/i1.mp3"
+        },
+        {
+          "name": "dark-souls-dark-souls-death",
+          "description": {
+            "zh-CN": "Dark souls death",
+            "en-US": "Dark souls death"
+          },
+          "path": "c1/i2.mp3"
+        },
+        {
+          "name": "dark-souls-dark-souls-new-area-sound",
+          "description": {
+            "zh-CN": "Dark Souls New Area Sound",
+            "en-US": "Dark Souls New Area Sound"
+          },
+          "path": "c1/i3.mp3"
+        },
+        {
+          "name": "dark-souls-dark-souls-vordt-theme-but-good-part",
+          "description": {
+            "zh-CN": "Dark souls vordt theme but good part",
+            "en-US": "Dark souls vordt theme but good part"
+          },
+          "path": "c1/i4.mp3"
+        },
+        {
+          "name": "dark-souls-3-ashen-one-hearest-thou-my-voice-still",
+          "description": {
+            "zh-CN": "Ashen one, hearest thou my voice, still",
+            "en-US": "Ashen one, hearest thou my voice, still"
+          },
+          "path": "c1/i5.mp3"
+        },
+        {
+          "name": "dark-souls-3-dark-souls-3-scream",
+          "description": {
+            "zh-CN": "Dark Souls 3 scream",
+            "en-US": "Dark Souls 3 scream"
+          },
+          "path": "c1/i6.mp3"
+        },
+        {
+          "name": "dark-souls-3-dark-souls-stab-sound",
+          "description": {
+            "zh-CN": "Dark Souls Stab Sound",
+            "en-US": "Dark Souls Stab Sound"
+          },
+          "path": "c1/i7.mp3"
+        },
+        {
+          "name": "dark-souls-3-hellooo",
+          "description": {
+            "zh-CN": "Hellooo",
+            "en-US": "Hellooo"
+          },
+          "path": "c1/i8.mp3"
+        },
+        {
+          "name": "dark-souls-3-yes-indeed---dark-souls-iii",
+          "description": {
+            "zh-CN": "Yes, Indeed - Dark Souls III",
+            "en-US": "Yes, Indeed - Dark Souls III"
+          },
+          "path": "c1/i9.mp3"
+        },
+        {
+          "name": "fire-keeper-dark-souls-3---fire-keeper",
+          "description": {
+            "zh-CN": "Dark Souls 3 - Fire Keeper",
+            "en-US": "Dark Souls 3 - Fire Keeper"
+          },
+          "path": "c1/i10.mp3"
+        },
+        {
+          "name": "praise-the-sun-praise-the-sun-bassb",
+          "description": {
+            "zh-CN": "PRAISE The SUN BassB",
+            "en-US": "PRAISE The SUN BassB"
+          },
+          "path": "c1/i11.mp3"
+        },
+        {
+          "name": "praise-the-sun-praise-the-sun-echo",
+          "description": {
+            "zh-CN": "Praise the sun echo",
+            "en-US": "Praise the sun echo"
+          },
+          "path": "c1/i12.mp3"
+        },
+        {
+          "name": "praise-the-sun-praise-the-sun-sfm",
+          "description": {
+            "zh-CN": "praise the sun sfm",
+            "en-US": "praise the sun sfm"
+          },
+          "path": "c1/i13.mp3"
+        },
+        {
+          "name": "praise-the-sun-praise-the-sun",
+          "description": {
+            "zh-CN": "Praise the SUN!!",
+            "en-US": "Praise the SUN!!"
+          },
+          "path": "c1/i14.mp3"
+        },
+        {
+          "name": "praise-the-sun-scout-praise-the-sun-bro",
+          "description": {
+            "zh-CN": "SCOUT: PRAISE THE SUN BRO",
+            "en-US": "SCOUT: PRAISE THE SUN BRO"
+          },
+          "path": "c1/i15.mp3"
+        },
+        {
+          "name": "you-died-dark-souls-death",
+          "description": {
+            "zh-CN": "Dark souls death",
+            "en-US": "Dark souls death"
+          },
+          "path": "c1/i16.mp3"
+        },
+        {
+          "name": "you-died-faker-bronze-plays",
+          "description": {
+            "zh-CN": "Faker Bronze Plays",
+            "en-US": "Faker Bronze Plays"
+          },
+          "path": "c1/i17.mp3"
+        },
+        {
+          "name": "you-died-lol-you-died",
+          "description": {
+            "zh-CN": "LOL YOU DIED",
+            "en-US": "LOL YOU DIED"
+          },
+          "path": "c1/i18.mp3"
+        },
+        {
+          "name": "you-died-minecraft-dead-sound",
+          "description": {
+            "zh-CN": "minecraft dead sound",
+            "en-US": "minecraft dead sound"
+          },
+          "path": "c1/i19.mp3"
+        },
+        {
+          "name": "you-died-you-died",
+          "description": {
+            "zh-CN": "You Died",
+            "en-US": "You Died"
+          },
+          "path": "c1/i20.mp3"
+        }
+      ]
+    },
+    {
+      "categoryName": "elden_ring",
+      "categoryDescription": {
+        "zh-CN": "Elden Ring / 法环",
+        "en-US": "Elden Ring / 法环"
+      },
+      "voiceList": [
+        {
+          "name": "elden-ring-bayle",
+          "description": {
+            "zh-CN": "Bayle",
+            "en-US": "Bayle"
+          },
+          "path": "c2/i0.mp3"
+        },
+        {
+          "name": "elden-ring-elden-ring-death",
+          "description": {
+            "zh-CN": "elden ring death",
+            "en-US": "elden ring death"
+          },
+          "path": "c2/i1.mp3"
+        },
+        {
+          "name": "elden-ring-i-am-malenia-blade-of-miquella",
+          "description": {
+            "zh-CN": "I am Malenia, Blade of Miquella",
+            "en-US": "I am Malenia, Blade of Miquella"
+          },
+          "path": "c2/i2.mp3"
+        },
+        {
+          "name": "elden-ring-no-maidens",
+          "description": {
+            "zh-CN": "No maidens",
+            "en-US": "No maidens"
+          },
+          "path": "c2/i3.mp3"
+        },
+        {
+          "name": "elden-ring-ooh-elden-ring",
+          "description": {
+            "zh-CN": "ooh elden ring",
+            "en-US": "ooh elden ring"
+          },
+          "path": "c2/i4.mp3"
+        }
+      ]
+    },
+    {
+      "categoryName": "mambo_hakimi",
+      "categoryDescription": {
+        "zh-CN": "Mambo / Hakimi",
+        "en-US": "Mambo / Hakimi"
+      },
+      "voiceList": [
+        {
+          "name": "mambo-hachimi-chimici-mambo",
+          "description": {
+            "zh-CN": "Hachimi Chimici Mambo",
+            "en-US": "Hachimi Chimici Mambo"
+          },
+          "path": "c3/i0.mp3"
+        },
+        {
+          "name": "mambo-mambo-matikanetannhauser",
+          "description": {
+            "zh-CN": "Mambo (Matikanetannhauser)",
+            "en-US": "Mambo (Matikanetannhauser)"
+          },
+          "path": "c3/i1.mp3"
+        },
+        {
+          "name": "mambo-mambo曼波-诗歌剧matikanetannhauser",
+          "description": {
+            "zh-CN": "Mambo曼波 诗歌剧Matikanetannhauser",
+            "en-US": "Mambo曼波 诗歌剧Matikanetannhauser"
+          },
+          "path": "c3/i2.mp3"
+        },
+        {
+          "name": "mambo-music-mambo-sem-musica-de-fundo",
+          "description": {
+            "zh-CN": "Music mambo, sem musica de fundo",
+            "en-US": "Music mambo, sem musica de fundo"
+          },
+          "path": "c3/i3.mp3"
+        },
+        {
+          "name": "mambo-wow-matikane-tannhauser",
+          "description": {
+            "zh-CN": "wow~~~ matikane tannhauser",
+            "en-US": "wow~~~ matikane tannhauser"
+          },
+          "path": "c3/i4.mp3"
+        }
+      ]
+    }
+  ]
+}

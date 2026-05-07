@@ -13,6 +13,7 @@ buttons can all live in the same pack system.
   `com.znbsf.buttonbox`.
 - Built-in AquaButton pack with 260 local voice assets.
 - Built-in MeaButton pack with 237 local voice assets.
+- Built-in MyInstants Meme Pack with 37 local meme audio assets.
 - Room-backed local pack database foundation.
 - `.buttonpack.zip` import/export foundation for portable audio packs, with
   schema-version checks and clearer success/failure messages.
@@ -113,6 +114,8 @@ Built-in voice data and assets are derived from:
 
 - AquaButton web resources: [zyzsdy/aqua-button](https://github.com/zyzsdy/aqua-button)
 - MeaButton web resources: [zyzsdy/meamea-button](https://github.com/zyzsdy/meamea-button)
+- MyInstants user-uploaded meme clips collected locally for study/testing;
+  verify rights before redistribution.
 
 ## Licenses and Notes
 

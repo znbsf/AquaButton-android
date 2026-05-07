@@ -178,6 +178,8 @@ Current implementation:
 - Built-in Aqua and Mea assets remain read-only, but `Delete Pack` and
   per-button delete are available for built-in content. Deleting built-in
   content records local hidden-state preferences so startup reseeding skips it.
+- MyInstants Meme Pack is bundled as the third built-in pack with 37 local
+  audio buttons after removing the two Hakimi entries requested for exclusion.
 - The old action strip has been reduced: `New Pack` uses the same chip style as
   pack tabs, while import, export, and delete live in the top app bar pack
   actions menu.
