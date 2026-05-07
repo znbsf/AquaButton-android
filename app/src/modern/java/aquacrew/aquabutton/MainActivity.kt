@@ -38,6 +38,8 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -47,6 +49,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -216,10 +220,10 @@ interface ButtonPackDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItems(items: List<ButtonItemEntity>)
 
-    @Query("DELETE FROM trigger_phrases WHERE itemId IN (SELECT id FROM button_items WHERE packId IN (SELECT id FROM packs WHERE isBuiltIn = 1))")
+    @Query("DELETE FROM trigger_phrases WHERE itemId IN (SELECT id FROM button_items WHERE packId IN (SELECT id FROM packs WHERE isBuiltIn = 1) AND assetPath IS NOT NULL)")
     suspend fun deleteBuiltInTriggerPhrases()
 
-    @Query("DELETE FROM button_items WHERE packId IN (SELECT id FROM packs WHERE isBuiltIn = 1)")
+    @Query("DELETE FROM button_items WHERE packId IN (SELECT id FROM packs WHERE isBuiltIn = 1) AND assetPath IS NOT NULL")
     suspend fun deleteBuiltInItems()
 
     @Query("DELETE FROM categories WHERE packId IN (SELECT id FROM packs WHERE isBuiltIn = 1)")
@@ -248,6 +252,9 @@ interface ButtonPackDao {
 
     @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM packs")
     suspend fun getMaxPackSortOrder(): Int
+
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM categories WHERE packId = :packId")
+    suspend fun getMaxCategorySortOrder(packId: String): Int
 
     @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM button_items WHERE categoryId = :categoryId")
     suspend fun getMaxItemSortOrder(categoryId: String): Int
@@ -292,7 +299,6 @@ class ButtonPackRepository(
             val dao = database.buttonPackDao()
             dao.deleteBuiltInTriggerPhrases()
             dao.deleteBuiltInItems()
-            dao.deleteBuiltInCategories()
             dao.deleteBuiltInPacks()
             dao.insertPacks(builtInPacks.mapIndexed { index, pack -> pack.toEntity(index) })
             dao.insertCategories(
@@ -490,11 +496,32 @@ class ButtonPackRepository(
         return packId
     }
 
+    suspend fun createCategory(packId: String, title: String): String {
+        val dao = database.buttonPackDao()
+        val pack = dao.getPack(packId)
+        requireNotNull(pack) { "Selected pack no longer exists" }
+        val cleanTitle = title.trim()
+        require(cleanTitle.isNotBlank()) { "Category name is required" }
+        val categoryId = "$packId:${cleanTitle.safeId()}-${UUID.randomUUID().toString().take(8)}"
+        database.withTransaction {
+            dao.insertCategories(
+                listOf(
+                    CategoryEntity(
+                        id = categoryId,
+                        packId = packId,
+                        title = cleanTitle,
+                        sortOrder = dao.getMaxCategorySortOrder(packId) + 1
+                    )
+                )
+            )
+        }
+        return categoryId
+    }
+
     suspend fun importAudioButton(packId: String, categoryId: String, uri: Uri): String {
         val dao = database.buttonPackDao()
         val pack = dao.getPack(packId)
         requireNotNull(pack) { "Selected pack no longer exists" }
-        require(!pack.isBuiltIn) { "Built-in packs are read-only" }
 
         val displayName = context.displayName(uri)
         val extension = displayName.substringAfterLast('.', "mp3").safeExtension()
@@ -832,6 +859,38 @@ class AquaViewModel : ViewModel() {
         }
     }
 
+    fun createCategory(activity: ComponentActivity, name: String) {
+        val pack = state.selectedPack ?: return
+        state = state.copy(error = null, notice = "Creating category")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    val categoryId = repo.createCategory(pack.id, name)
+                    categoryId to repo.loadPacks()
+                }
+            }.onSuccess { (categoryId, packs) ->
+                val updatedPack = packs.firstOrNull { it.id == pack.id }
+                val category = updatedPack?.categories?.firstOrNull { it.id == categoryId }
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = pack.id,
+                    selectedCategoryId = categoryId,
+                    query = "",
+                    error = null,
+                    notice = "Created ${category?.title ?: "category"}"
+                )
+            }.onFailure { error ->
+                state = state.copy(
+                    error = error.message ?: "Failed to create category",
+                    notice = null
+                )
+            }
+        }
+    }
+
     fun importAudioToSelectedCategory(activity: ComponentActivity, uri: Uri) {
         val pack = state.selectedPack ?: return
         val category = state.selectedCategory ?: return
@@ -1007,6 +1066,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewModel()) {
     var showNewPackDialog by mutableStateOf(false)
+    var showNewCategoryDialog by mutableStateOf(false)
     var showDeletePackDialog by mutableStateOf(false)
     var pendingDeleteItem by mutableStateOf<ButtonItem?>(null)
     val importLauncher = rememberLauncherForActivityResult(
@@ -1048,6 +1108,7 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onRandomClick = viewModel::playRandom,
                 onStopClick = viewModel::stop,
                 onNewPackClick = { showNewPackDialog = true },
+                onNewCategoryClick = { showNewCategoryDialog = true },
                 onAddAudioClick = { audioLauncher.launch(arrayOf("audio/*")) },
                 onDeletePackClick = { showDeletePackDialog = true },
                 onDeleteItemClick = { pendingDeleteItem = it },
@@ -1072,6 +1133,15 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                     onCreate = { name, category ->
                         showNewPackDialog = false
                         viewModel.createUserPack(activity, name, category)
+                    }
+                )
+            }
+            if (showNewCategoryDialog) {
+                NewCategoryDialog(
+                    onDismiss = { showNewCategoryDialog = false },
+                    onCreate = { name ->
+                        showNewCategoryDialog = false
+                        viewModel.createCategory(activity, name)
                     }
                 )
             }
@@ -1116,6 +1186,7 @@ private fun AquaHome(
     onRandomClick: () -> Unit,
     onStopClick: () -> Unit,
     onNewPackClick: () -> Unit,
+    onNewCategoryClick: () -> Unit,
     onAddAudioClick: () -> Unit,
     onDeletePackClick: () -> Unit,
     onDeleteItemClick: (ButtonItem) -> Unit,
@@ -1174,6 +1245,7 @@ private fun AquaHome(
                     onQueryChange = onQueryChange,
                     onItemClick = onItemClick,
                     onNewPackClick = onNewPackClick,
+                    onNewCategoryClick = onNewCategoryClick,
                     onAddAudioClick = onAddAudioClick,
                     onDeletePackClick = onDeletePackClick,
                     onDeleteItemClick = onDeleteItemClick,
@@ -1193,6 +1265,7 @@ private fun ButtonPackBrowser(
     onQueryChange: (String) -> Unit,
     onItemClick: (ButtonItem) -> Unit,
     onNewPackClick: () -> Unit,
+    onNewCategoryClick: () -> Unit,
     onAddAudioClick: () -> Unit,
     onDeletePackClick: () -> Unit,
     onDeleteItemClick: (ButtonItem) -> Unit,
@@ -1203,17 +1276,14 @@ private fun ButtonPackBrowser(
         modifier = Modifier.fillMaxSize()
     ) {
         PackSwitcher(
+            state = state,
             packs = state.packs,
             selectedPack = state.selectedPack,
-            onPackClick = onPackClick
-        )
-        PackActions(
-            state = state,
+            onPackClick = onPackClick,
             onNewPackClick = onNewPackClick,
-            onAddAudioClick = onAddAudioClick,
-            onDeletePackClick = onDeletePackClick,
             onImportClick = onImportClick,
-            onExportClick = onExportClick
+            onExportClick = onExportClick,
+            onDeletePackClick = onDeletePackClick
         )
         SearchBox(
             query = state.query,
@@ -1223,10 +1293,15 @@ private fun ButtonPackBrowser(
         CategorySwitcher(
             categories = state.selectedPack?.categories.orEmpty(),
             selectedCategory = state.selectedCategory,
-            onCategoryClick = onCategoryClick
+            canAddCategory = state.selectedPack != null,
+            onCategoryClick = onCategoryClick,
+            onNewCategoryClick = onNewCategoryClick
         )
         PackSummary(state)
-        if (state.shownItems.isEmpty()) {
+        val canAddAudio = state.query.isBlank() &&
+            state.selectedPack != null &&
+            state.selectedCategory != null
+        if (state.shownItems.isEmpty() && !canAddAudio) {
             EmptyPackView(state.selectedPack, state.query)
         } else {
             LazyColumn(
@@ -1243,60 +1318,12 @@ private fun ButtonPackBrowser(
                         onDeleteClick = { onDeleteItemClick(item) }
                     )
                 }
+                if (canAddAudio) {
+                    item {
+                        AddAudioCard(onClick = onAddAudioClick)
+                    }
+                }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun PackActions(
-    state: AquaUiState,
-    onNewPackClick: () -> Unit,
-    onAddAudioClick: () -> Unit,
-    onDeletePackClick: () -> Unit,
-    onImportClick: () -> Unit,
-    onExportClick: () -> Unit
-) {
-    FlowRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Button(onClick = onNewPackClick) {
-            Text("New Pack")
-        }
-        Button(
-            onClick = onAddAudioClick,
-            enabled = state.selectedPack?.isBuiltIn == false && state.selectedCategory != null
-        ) {
-            Text("Add Audio")
-        }
-        Button(
-            onClick = onDeletePackClick,
-            enabled = state.selectedPack != null
-        ) {
-            Text("Delete Pack")
-        }
-        Button(onClick = onImportClick) {
-            Text("Import")
-        }
-        Button(
-            onClick = onExportClick,
-            enabled = state.selectedPack != null
-        ) {
-            Text("Export")
-        }
-        state.notice?.let {
-            Text(
-                text = it,
-                color = Color(0xFF625B71),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 4.dp)
-            )
         }
     }
 }
@@ -1367,13 +1394,52 @@ private fun NewPackDialog(
     )
 }
 
+@Composable
+private fun NewCategoryDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String) -> Unit
+) {
+    var categoryName by mutableStateOf("")
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New Category") },
+        text = {
+            OutlinedTextField(
+                value = categoryName,
+                onValueChange = { categoryName = it },
+                label = { Text("Category name") },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onCreate(categoryName) },
+                enabled = categoryName.isNotBlank()
+            ) {
+                Text("Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PackSwitcher(
+    state: AquaUiState,
     packs: List<ButtonPack>,
     selectedPack: ButtonPack?,
-    onPackClick: (ButtonPack) -> Unit
+    onPackClick: (ButtonPack) -> Unit,
+    onNewPackClick: () -> Unit,
+    onImportClick: () -> Unit,
+    onExportClick: () -> Unit,
+    onDeletePackClick: () -> Unit
 ) {
+    var showMenu by mutableStateOf(false)
     FlowRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -1392,6 +1458,59 @@ private fun PackSwitcher(
                 }
             )
         }
+        AssistChip(
+            onClick = onNewPackClick,
+            label = { Text("New Pack") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        )
+        Box {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "Pack actions")
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Import Pack") },
+                    onClick = {
+                        showMenu = false
+                        onImportClick()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Export Pack") },
+                    enabled = state.selectedPack != null,
+                    onClick = {
+                        showMenu = false
+                        onExportClick()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Delete Pack") },
+                    enabled = state.selectedPack != null,
+                    onClick = {
+                        showMenu = false
+                        onDeletePackClick()
+                    }
+                )
+            }
+        }
+        state.notice?.let {
+            Text(
+                text = it,
+                color = Color(0xFF625B71),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp)
+            )
+        }
     }
 }
 
@@ -1400,7 +1519,9 @@ private fun PackSwitcher(
 private fun CategorySwitcher(
     categories: List<ButtonCategory>,
     selectedCategory: ButtonCategory?,
-    onCategoryClick: (ButtonCategory) -> Unit
+    canAddCategory: Boolean,
+    onCategoryClick: (ButtonCategory) -> Unit,
+    onNewCategoryClick: () -> Unit
 ) {
     FlowRow(
         modifier = Modifier
@@ -1417,6 +1538,19 @@ private fun CategorySwitcher(
                     { Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00B8C8))) }
                 } else {
                     null
+                }
+            )
+        }
+        if (canAddCategory) {
+            AssistChip(
+                onClick = onNewCategoryClick,
+                label = { Text("Add Category") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             )
         }
@@ -1567,6 +1701,50 @@ private fun ButtonItemCard(
                         tint = Color(0xFFB3261E)
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddAudioCard(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F2FF)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE5D9FF))
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = null,
+                    tint = Color(0xFF6C2BFF)
+                )
+            }
+            Spacer(Modifier.size(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Add Audio",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Import an audio file into this category",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF7A7286)
+                )
             }
         }
     }

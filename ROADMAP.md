@@ -152,10 +152,13 @@ Done when:
 Current implementation:
 
 - `New Pack` creates a user-owned pack with a first category.
-- Built-in pack assets remain read-only; `Add Audio` is enabled only for user
-  packs.
+- Built-in pack assets remain read-only, but users can append app-private
+  categories and imported audio to built-in packs.
 - `Add Audio` opens Android's file picker for `audio/*`, copies the selected
   file into app-private storage, and creates a playable button.
+- `Add Audio` now appears as the last card in the shown button list instead of
+  in the top action strip.
+- `Add Category` appears as the last category chip for the selected pack.
 - User packs can be exported through the existing `.buttonpack.zip` path.
 - User packs can be deleted with confirmation. Deleting a pack removes its
   categories, buttons, trigger phrases, and app-private media directory.
@@ -165,8 +168,8 @@ Current implementation:
 - Built-in Aqua and Mea assets remain read-only, but `Delete Pack` and
   per-button delete are available for built-in content. Deleting built-in
   content records local hidden-state preferences so startup reseeding skips it.
-- `Add Audio` remains disabled for built-in packs because APK assets should not
-  be mixed with user-owned media.
+- The old action strip has been reduced: `New Pack` uses the same chip style as
+  pack tabs, while import, export, and delete live in a secondary pack menu.
 - Pack actions, pack chips, and category chips use wrapping rows so narrow
   screens avoid long one-line horizontal controls.
 - Rename/edit flows, moving buttons, creating extra categories, and recording

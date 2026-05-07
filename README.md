@@ -16,6 +16,8 @@ buttons can all live in the same pack system.
 - Custom pack creation plus single-audio import into user packs.
 - Delete packs and buttons with confirmation, including bundled Aqua/Mea
   content as local hidden state.
+- Add categories and imported audio to any selected pack, including bundled
+  Aqua/Mea packs; imported media stays in app-private storage.
 - Pack switching, category filtering, search, random play, stop, and local
   asset-first playback.
 - Pack actions and category chips wrap across multiple rows on narrow screens.
@@ -80,14 +82,18 @@ storage so packs stay portable after import.
 
 ## Custom Packs
 
-Use `New Pack` to create a user-owned pack with an initial category. Built-in
-Aqua and Mea packs keep their bundled assets read-only, so `Add Audio` remains
-enabled only for user packs. `Delete Pack` and per-button delete are available
-for both user and built-in packs. Deleting built-in content records a local
-hidden-state preference so the app stops reseeding it on startup; it does not
-rewrite APK assets. Imported audio files are copied into app-private storage,
-can be deleted from user packs, and can be exported again as part of a
-`.buttonpack.zip`.
+Use `New Pack` to create a user-owned pack with an initial category. `New Pack`
+uses the same chip style as regular pack tabs. `Add Category` appears at the
+end of the category chips, and `Add Audio` appears as the last card in the
+shown button list.
+
+Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
+add categories and imported audio to them. Imported audio files are copied into
+app-private storage, can be deleted, and can be exported again as part of a
+`.buttonpack.zip`. `Delete Pack`, `Import`, and `Export` live in the pack
+actions menu; deletion still asks for confirmation. Deleting built-in content
+records a local hidden-state preference so the app stops reseeding it on
+startup; it does not rewrite APK assets.
 
 ## Source Credits
 
