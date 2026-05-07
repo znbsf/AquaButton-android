@@ -6,6 +6,7 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +40,7 @@ import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -52,6 +56,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -93,6 +98,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.util.Locale
+import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -192,6 +198,9 @@ interface ButtonPackDao {
     @Query("SELECT * FROM button_items ORDER BY sortOrder ASC, title ASC")
     suspend fun getItems(): List<ButtonItemEntity>
 
+    @Query("SELECT * FROM packs WHERE id = :packId LIMIT 1")
+    suspend fun getPack(packId: String): PackEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPacks(packs: List<PackEntity>)
 
@@ -227,6 +236,9 @@ interface ButtonPackDao {
 
     @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM packs")
     suspend fun getMaxPackSortOrder(): Int
+
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM button_items WHERE categoryId = :categoryId")
+    suspend fun getMaxItemSortOrder(categoryId: String): Int
 }
 
 @Database(
@@ -430,6 +442,82 @@ class ButtonPackRepository(
         }
     }
 
+    suspend fun createUserPack(name: String, categoryTitle: String): String {
+        val cleanName = name.trim()
+        val cleanCategory = categoryTitle.trim().ifBlank { "General" }
+        require(cleanName.isNotBlank()) { "Pack name is required" }
+        val packId = "user-${cleanName.safeId()}-${System.currentTimeMillis()}"
+        val categoryId = "$packId:${cleanCategory.safeId()}"
+        database.withTransaction {
+            val dao = database.buttonPackDao()
+            dao.insertPacks(
+                listOf(
+                    PackEntity(
+                        id = packId,
+                        name = cleanName,
+                        author = "User",
+                        description = "Custom button pack.",
+                        logoResName = "main_logo",
+                        isBuiltIn = false,
+                        sortOrder = dao.getMaxPackSortOrder() + 1
+                    )
+                )
+            )
+            dao.insertCategories(
+                listOf(
+                    CategoryEntity(
+                        id = categoryId,
+                        packId = packId,
+                        title = cleanCategory,
+                        sortOrder = 0
+                    )
+                )
+            )
+        }
+        File(context.filesDir, "button_packs/$packId/assets/audio").mkdirs()
+        return packId
+    }
+
+    suspend fun importAudioButton(packId: String, categoryId: String, uri: Uri): String {
+        val dao = database.buttonPackDao()
+        val pack = dao.getPack(packId)
+        requireNotNull(pack) { "Selected pack no longer exists" }
+        require(!pack.isBuiltIn) { "Built-in packs are read-only" }
+
+        val displayName = context.displayName(uri)
+        val extension = displayName.substringAfterLast('.', "mp3").safeExtension()
+        val itemTitle = displayName.substringBeforeLast('.').ifBlank { "Audio Button" }
+        val itemId = "${itemTitle.safeId()}-${UUID.randomUUID().toString().take(8)}"
+        val mediaFile = File(
+            context.filesDir,
+            "button_packs/$packId/assets/audio/${itemId.safeId()}.$extension"
+        )
+        mediaFile.parentFile?.mkdirs()
+        context.contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "Cannot open selected audio" }
+            mediaFile.outputStream().use { output -> input.copyTo(output) }
+        }
+
+        database.withTransaction {
+            dao.insertItems(
+                listOf(
+                    ButtonItemEntity(
+                        id = "$packId:$itemId",
+                        packId = packId,
+                        categoryId = categoryId,
+                        title = itemTitle,
+                        mediaType = "audio",
+                        assetPath = null,
+                        remoteUrl = null,
+                        localPath = mediaFile.absolutePath,
+                        sortOrder = dao.getMaxItemSortOrder(categoryId) + 1
+                    )
+                )
+            )
+        }
+        return "$packId:$itemId"
+    }
+
     private fun loadBuiltInPacks(): List<ButtonPack> {
         val assets = context.assets
         val aquaJson = assets.open("voices.json").bufferedReader().use { it.readText() }
@@ -631,6 +719,73 @@ class AquaViewModel : ViewModel() {
         }
     }
 
+    fun createUserPack(activity: ComponentActivity, name: String, categoryTitle: String) {
+        state = state.copy(loading = true, error = null, notice = "Creating pack")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    val packId = repo.createUserPack(name, categoryTitle)
+                    packId to repo.loadPacks()
+                }
+            }.onSuccess { (packId, packs) ->
+                val pack = packs.firstOrNull { it.id == packId }
+                state = state.copy(
+                    loading = false,
+                    packs = packs,
+                    selectedPackId = packId,
+                    selectedCategoryId = pack?.categories?.firstOrNull()?.id,
+                    query = "",
+                    error = null,
+                    notice = "Created ${pack?.name ?: "pack"}"
+                )
+            }.onFailure { error ->
+                state = state.copy(
+                    loading = false,
+                    error = error.message ?: "Failed to create pack",
+                    notice = null
+                )
+            }
+        }
+    }
+
+    fun importAudioToSelectedCategory(activity: ComponentActivity, uri: Uri) {
+        val pack = state.selectedPack ?: return
+        val category = state.selectedCategory ?: return
+        state = state.copy(error = null, notice = "Adding audio")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    val itemDbId = repo.importAudioButton(pack.id, category.id, uri)
+                    itemDbId to repo.loadPacks()
+                }
+            }.onSuccess { (itemDbId, packs) ->
+                val importedPack = packs.firstOrNull { it.id == pack.id }
+                val importedItem = importedPack?.categories
+                    ?.flatMap { it.items }
+                    ?.firstOrNull { "${it.packId}:${it.id}" == itemDbId }
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = pack.id,
+                    selectedCategoryId = category.id,
+                    query = "",
+                    error = null,
+                    notice = "Added ${importedItem?.title ?: "audio"}"
+                )
+            }.onFailure { error ->
+                state = state.copy(
+                    error = error.message ?: "Failed to add audio",
+                    notice = null
+                )
+            }
+        }
+    }
+
     fun play(item: ButtonItem) {
         stop()
         val player = MediaPlayer().apply {
@@ -702,6 +857,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewModel()) {
+    var showNewPackDialog by mutableStateOf(false)
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -711,6 +867,11 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         if (uri != null) viewModel.exportSelectedPack(activity, uri)
+    }
+    val audioLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) viewModel.importAudioToSelectedCategory(activity, uri)
     }
     LaunchedEffect(Unit) {
         viewModel.load(activity)
@@ -735,6 +896,8 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onItemClick = viewModel::play,
                 onRandomClick = viewModel::playRandom,
                 onStopClick = viewModel::stop,
+                onNewPackClick = { showNewPackDialog = true },
+                onAddAudioClick = { audioLauncher.launch(arrayOf("audio/*")) },
                 onImportClick = {
                     importLauncher.launch(
                         arrayOf(
@@ -750,6 +913,15 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 },
                 onRetryClick = { viewModel.load(activity) }
             )
+            if (showNewPackDialog) {
+                NewPackDialog(
+                    onDismiss = { showNewPackDialog = false },
+                    onCreate = { name, category ->
+                        showNewPackDialog = false
+                        viewModel.createUserPack(activity, name, category)
+                    }
+                )
+            }
         }
     }
 }
@@ -764,6 +936,8 @@ private fun AquaHome(
     onItemClick: (ButtonItem) -> Unit,
     onRandomClick: () -> Unit,
     onStopClick: () -> Unit,
+    onNewPackClick: () -> Unit,
+    onAddAudioClick: () -> Unit,
     onImportClick: () -> Unit,
     onExportClick: () -> Unit,
     onRetryClick: () -> Unit
@@ -818,6 +992,8 @@ private fun AquaHome(
                     onCategoryClick = onCategoryClick,
                     onQueryChange = onQueryChange,
                     onItemClick = onItemClick,
+                    onNewPackClick = onNewPackClick,
+                    onAddAudioClick = onAddAudioClick,
                     onImportClick = onImportClick,
                     onExportClick = onExportClick
                 )
@@ -833,6 +1009,8 @@ private fun ButtonPackBrowser(
     onCategoryClick: (ButtonCategory) -> Unit,
     onQueryChange: (String) -> Unit,
     onItemClick: (ButtonItem) -> Unit,
+    onNewPackClick: () -> Unit,
+    onAddAudioClick: () -> Unit,
     onImportClick: () -> Unit,
     onExportClick: () -> Unit
 ) {
@@ -846,6 +1024,8 @@ private fun ButtonPackBrowser(
         )
         PackActions(
             state = state,
+            onNewPackClick = onNewPackClick,
+            onAddAudioClick = onAddAudioClick,
             onImportClick = onImportClick,
             onExportClick = onExportClick
         )
@@ -883,16 +1063,28 @@ private fun ButtonPackBrowser(
 @Composable
 private fun PackActions(
     state: AquaUiState,
+    onNewPackClick: () -> Unit,
+    onAddAudioClick: () -> Unit,
     onImportClick: () -> Unit,
     onExportClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Button(onClick = onNewPackClick) {
+            Text("New Pack")
+        }
+        Button(
+            onClick = onAddAudioClick,
+            enabled = state.selectedPack?.isBuiltIn == false && state.selectedCategory != null
+        ) {
+            Text("Add Audio")
+        }
         Button(onClick = onImportClick) {
             Text("Import")
         }
@@ -908,10 +1100,52 @@ private fun PackActions(
                 color = Color(0xFF625B71),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.padding(start = 4.dp)
             )
         }
     }
+}
+
+@Composable
+private fun NewPackDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String, String) -> Unit
+) {
+    var packName by mutableStateOf("")
+    var categoryName by mutableStateOf("General")
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New Pack") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = packName,
+                    onValueChange = { packName = it },
+                    label = { Text("Pack name") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = categoryName,
+                    onValueChange = { categoryName = it },
+                    label = { Text("First category") },
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onCreate(packName, categoryName) },
+                enabled = packName.isNotBlank()
+            ) {
+                Text("Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
@@ -1280,6 +1514,25 @@ private fun String.safeId(): String {
         .replace(Regex("[^\\p{L}\\p{N}._-]+"), "-")
         .trim('-')
         .ifBlank { "pack-${System.currentTimeMillis()}" }
+}
+
+private fun String.safeExtension(): String {
+    return lowercase(Locale.US)
+        .replace(Regex("[^a-z0-9]+"), "")
+        .ifBlank { "mp3" }
+}
+
+private fun Context.displayName(uri: Uri): String {
+    contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null).use { cursor ->
+        if (cursor != null && cursor.moveToFirst()) {
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0) {
+                return cursor.getString(index).orEmpty().ifBlank { "audio-${System.currentTimeMillis()}.mp3" }
+            }
+        }
+    }
+    return uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null }
+        ?: "audio-${System.currentTimeMillis()}.mp3"
 }
 
 private fun safeZipFile(root: File, entry: ZipEntry): File {

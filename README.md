@@ -13,6 +13,7 @@ buttons can all live in the same pack system.
 - Built-in MeaButton pack with 237 local voice assets.
 - Room-backed local pack database foundation.
 - `.buttonpack.zip` import/export foundation for portable audio packs.
+- Custom pack creation plus single-audio import into user packs.
 - Pack switching, category filtering, search, random play, stop, and local
   asset-first playback.
 - Fallback remote playback URL is retained for built-in packs.
@@ -49,7 +50,7 @@ Install on a connected emulator or device:
 Development is tracked in [ROADMAP.md](./ROADMAP.md). The next major phases are:
 
 - Manual import/export polish for `.buttonpack.zip` packs.
-- Custom audio buttons from recording or imported files.
+- Custom audio polish: rename/delete/move buttons and recording.
 - Video buttons.
 - Foreground voice-recognition triggers.
 
@@ -73,6 +74,13 @@ images/logo.png
 The manifest stores pack metadata, categories, button titles, media type, media
 path, and future trigger phrases. Imported media is copied into app-private
 storage so packs stay portable after import.
+
+## Custom Packs
+
+Use `New Pack` to create a user-owned pack with an initial category. Built-in
+Aqua and Mea packs stay read-only; `Add Audio` is enabled only for user packs.
+Imported audio files are copied into app-private storage and can be exported
+again as part of a `.buttonpack.zip`.
 
 ## Source Credits
 

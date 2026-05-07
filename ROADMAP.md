@@ -133,6 +133,8 @@ Current implementation:
 
 ## Phase 4: Custom Audio Buttons
 
+Status: foundation completed for user packs and imported audio files.
+
 Goal: let users create their own audio buttons.
 
 - Add create/edit button screens.
@@ -145,6 +147,16 @@ Goal: let users create their own audio buttons.
 Done when:
 
 - A user can create a new pack/category/button and play it without rebuilding.
+
+Current implementation:
+
+- `New Pack` creates a user-owned pack with a first category.
+- Built-in packs remain read-only; `Add Audio` is enabled only for user packs.
+- `Add Audio` opens Android's file picker for `audio/*`, copies the selected
+  file into app-private storage, and creates a playable button.
+- User packs can be exported through the existing `.buttonpack.zip` path.
+- Editing, deleting, moving buttons, creating extra categories, and recording
+  audio are still planned.
 
 ## Phase 5: Video Buttons
 
@@ -194,9 +206,8 @@ Done when:
 
 ## Current Recommended Next Step
 
-Continue with Phase 4: Custom Audio Buttons.
+Continue polishing Phase 4: Custom Audio Buttons.
 
-The immediate implementation should add pack/category/button creation screens,
-then support importing one audio file or recording a new clip into app-private
-storage. That turns ButtonBox from a bundled-pack player into a real user-made
-soundboard tool.
+The immediate implementation should add delete/rename flows for user packs and
+buttons, then add recording with `MediaRecorder`. After that, the same pack
+editor can grow naturally into video buttons.
