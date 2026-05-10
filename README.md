@@ -21,6 +21,8 @@ buttons can all live in the same pack system.
   same-id conflicts before writing anything.
 - Same-id imports can either replace the existing pack or import as a copy.
 - Custom pack creation plus guided single-audio import into any selected pack.
+- Record new audio buttons with the microphone, preview/re-record before
+  saving, and export the recorded `.m4a` media inside `.buttonpack.zip` packs.
 - Rename packs/categories/buttons, move buttons between categories, and delete
   categories with confirmation.
 - Delete packs and buttons with confirmation, including bundled Aqua/Mea
@@ -77,7 +79,6 @@ Install on a connected emulator or device:
 
 Development is tracked in [ROADMAP.md](./ROADMAP.md). The next major phases are:
 
-- Recording new audio buttons.
 - Category sorting and richer pack import conflict previews.
 - Video buttons.
 - Foreground voice-recognition triggers.
@@ -110,6 +111,11 @@ uses the same chip style as regular pack tabs. `Add Category` appears at the
 end of the category chips, and `Add Audio` appears as the last card in the
 shown button list. Choosing an audio file opens an edit dialog so the title and
 target category can be checked before the button is created.
+
+The same `Add Audio` card can also record from the microphone. Tap `Record`,
+stop when done, optionally preview or re-record, then save the recording into
+the selected category. Recordings are stored as app-private `.m4a` files and
+are included when the pack is exported.
 
 Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
 add categories and imported audio to them. Imported audio files are copied into

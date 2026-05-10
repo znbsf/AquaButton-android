@@ -4,7 +4,7 @@ plugins {
     id 'com.google.devtools.ksp'
 }
 
-def buttonBoxVersionName = '2.13-import-preview'
+def buttonBoxVersionName = '2.14-record-audio'
 
 android {
     namespace 'aquacrew.aquabutton'
@@ -14,7 +14,7 @@ android {
         applicationId 'com.znbsf.buttonbox'
         minSdk 24
         targetSdk 36
-        versionCode 15
+        versionCode 16
         versionName buttonBoxVersionName
     }
 

@@ -134,8 +134,8 @@ Current implementation:
 
 ## Phase 4: Custom Audio Buttons
 
-Status: management polish completed for pack/category/button editing, with
-recording and sorting still planned.
+Status: recording and management polish completed; category sorting still
+planned.
 
 Goal: let users create their own audio buttons.
 
@@ -160,6 +160,9 @@ Current implementation:
 - `Add Audio` opens Android's file picker for `audio/*`, copies the selected
   file into app-private storage, opens an edit dialog for title/category, and
   creates a playable button.
+- `Add Audio` also supports microphone recording through `MediaRecorder`,
+  saves AAC-in-MP4 `.m4a` files into app-private storage, and offers
+  start/stop, preview, re-record, title/category selection, and save.
 - `Add Audio` now appears as the last card in the shown button list instead of
   in the top action strip.
 - `Add Category` appears as the last category chip for the selected pack.
@@ -188,7 +191,10 @@ Current implementation:
   actions menu.
 - Pack actions, pack chips, and category chips use wrapping rows so narrow
   screens avoid long one-line horizontal controls.
-- Recording audio and category sorting are still planned.
+- A full recording regression was verified on an emulator: record, preview,
+  save, play, export the pack, clear app data, re-import the exported pack, and
+  play the recorded button again.
+- Category sorting is still planned.
 
 ## Phase 5: Video Buttons
 
@@ -238,8 +244,6 @@ Done when:
 
 ## Current Recommended Next Step
 
-Continue polishing Phase 4: Custom Audio Buttons.
-
-The immediate implementation should add rename/edit flows for user packs and
-buttons, extra category management, then recording with `MediaRecorder`. After
-that, the same pack editor can grow naturally into video buttons.
+Move into the remaining Phase 4 polish: category sorting, richer import
+conflict handling, and better validation messages. After that, start Phase 5
+video buttons on the same pack/media model.

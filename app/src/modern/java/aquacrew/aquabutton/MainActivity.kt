@@ -1,9 +1,12 @@
 package aquacrew.aquabutton
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.res.AssetManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -40,7 +43,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -68,6 +75,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +90,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -716,6 +725,48 @@ class ButtonPackRepository(
         return "$packId:$itemId"
     }
 
+    suspend fun importRecordedAudioButton(
+        packId: String,
+        categoryId: String,
+        sourceFile: File,
+        title: String
+    ): String {
+        val dao = database.buttonPackDao()
+        val pack = dao.getPack(packId)
+        requireNotNull(pack) { "Selected pack no longer exists" }
+        val category = dao.getCategory(categoryId)
+        requireNotNull(category) { "Selected category no longer exists" }
+        require(sourceFile.isFile && sourceFile.length() > 0L) { "Recording is empty" }
+
+        val itemTitle = title.trim().ifBlank { "Recorded Button" }
+        val itemId = "${itemTitle.safeId()}-${UUID.randomUUID().toString().take(8)}"
+        val mediaFile = File(
+            context.filesDir,
+            "button_packs/$packId/assets/audio/${itemId.safeId()}.m4a"
+        )
+        mediaFile.parentFile?.mkdirs()
+        sourceFile.copyTo(mediaFile, overwrite = true)
+
+        database.withTransaction {
+            dao.insertItems(
+                listOf(
+                    ButtonItemEntity(
+                        id = "$packId:$itemId",
+                        packId = packId,
+                        categoryId = categoryId,
+                        title = itemTitle,
+                        mediaType = "audio",
+                        assetPath = null,
+                        remoteUrl = null,
+                        localPath = mediaFile.absolutePath,
+                        sortOrder = dao.getMaxItemSortOrder(categoryId) + 1
+                    )
+                )
+            )
+        }
+        return "$packId:$itemId"
+    }
+
     suspend fun renamePack(packId: String, name: String) {
         val cleanName = name.trim()
         require(cleanName.isNotBlank()) { "Pack name is required" }
@@ -1202,6 +1253,50 @@ class AquaViewModel : ViewModel() {
         }
     }
 
+    fun importRecordedAudio(
+        activity: ComponentActivity,
+        sourceFile: File,
+        title: String,
+        category: ButtonCategory
+    ) {
+        val pack = state.selectedPack ?: return
+        state = state.copy(error = null, notice = "Saving recording")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    val itemDbId = repo.importRecordedAudioButton(pack.id, category.id, sourceFile, title)
+                    sourceFile.delete()
+                    itemDbId to repo.loadPacks()
+                }
+            }.onSuccess { (itemDbId, packs) ->
+                val importedPack = packs.firstOrNull { it.id == pack.id }
+                val importedItem = importedPack?.categories
+                    ?.flatMap { it.items }
+                    ?.firstOrNull { "${it.packId}:${it.id}" == itemDbId }
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = pack.id,
+                    selectedCategoryId = category.id,
+                    query = "",
+                    error = null,
+                    notice = "Recorded ${importedItem?.title ?: "audio"}"
+                )
+            }.onFailure { error ->
+                state = state.copy(
+                    error = error.message ?: "Failed to save recording",
+                    notice = null
+                )
+            }
+        }
+    }
+
+    fun showNotice(message: String) {
+        state = state.copy(error = null, notice = message)
+    }
+
     fun renameSelectedPack(activity: ComponentActivity, name: String) {
         val pack = state.selectedPack ?: return
         state = state.copy(error = null, notice = "Renaming ${pack.name}")
@@ -1457,15 +1552,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewModel()) {
-    var showNewPackDialog by mutableStateOf(false)
-    var showNewCategoryDialog by mutableStateOf(false)
-    var showRenamePackDialog by mutableStateOf(false)
-    var showRenameCategoryDialog by mutableStateOf(false)
-    var showDeleteCategoryDialog by mutableStateOf(false)
-    var showDeletePackDialog by mutableStateOf(false)
-    var pendingAudioUri by mutableStateOf<Uri?>(null)
-    var pendingEditItem by mutableStateOf<ButtonItem?>(null)
-    var pendingDeleteItem by mutableStateOf<ButtonItem?>(null)
+    var showNewPackDialog by remember { mutableStateOf(false) }
+    var showNewCategoryDialog by remember { mutableStateOf(false) }
+    var showRenamePackDialog by remember { mutableStateOf(false) }
+    var showRenameCategoryDialog by remember { mutableStateOf(false) }
+    var showDeleteCategoryDialog by remember { mutableStateOf(false) }
+    var showDeletePackDialog by remember { mutableStateOf(false) }
+    var showRecordAudioDialog by remember { mutableStateOf(false) }
+    var pendingAudioUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingEditItem by remember { mutableStateOf<ButtonItem?>(null) }
+    var pendingDeleteItem by remember { mutableStateOf<ButtonItem?>(null) }
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -1480,6 +1576,15 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) pendingAudioUri = uri
+    }
+    val recordPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            showRecordAudioDialog = true
+        } else {
+            viewModel.showNotice("Microphone permission is required to record audio")
+        }
     }
     LaunchedEffect(Unit) {
         viewModel.load(activity)
@@ -1506,7 +1611,19 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onStopClick = viewModel::stop,
                 onNewPackClick = { showNewPackDialog = true },
                 onNewCategoryClick = { showNewCategoryDialog = true },
-                onAddAudioClick = { audioLauncher.launch(arrayOf("audio/*")) },
+                onImportAudioClick = { audioLauncher.launch(arrayOf("audio/*")) },
+                onRecordAudioClick = {
+                    if (
+                        ContextCompat.checkSelfPermission(
+                            activity,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        showRecordAudioDialog = true
+                    } else {
+                        recordPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                },
                 onRenamePackClick = { showRenamePackDialog = true },
                 onRenameCategoryClick = { showRenameCategoryDialog = true },
                 onDeleteCategoryClick = { showDeleteCategoryDialog = true },
@@ -1645,6 +1762,20 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                     }
                 )
             }
+            if (showRecordAudioDialog) {
+                val selectedPack = viewModel.state.selectedPack
+                val categories = selectedPack?.categories.orEmpty()
+                RecordAudioDialog(
+                    activity = activity,
+                    categories = categories,
+                    initialCategory = viewModel.state.selectedCategory,
+                    onDismiss = { showRecordAudioDialog = false },
+                    onSave = { buttonTitle, category, file ->
+                        showRecordAudioDialog = false
+                        viewModel.importRecordedAudio(activity, file, buttonTitle, category)
+                    }
+                )
+            }
             pendingEditItem?.let { item ->
                 val pack = viewModel.state.packs.firstOrNull { it.id == item.packId }
                 AudioButtonDialog(
@@ -1676,7 +1807,8 @@ private fun AquaHome(
     onStopClick: () -> Unit,
     onNewPackClick: () -> Unit,
     onNewCategoryClick: () -> Unit,
-    onAddAudioClick: () -> Unit,
+    onImportAudioClick: () -> Unit,
+    onRecordAudioClick: () -> Unit,
     onRenamePackClick: () -> Unit,
     onRenameCategoryClick: () -> Unit,
     onDeleteCategoryClick: () -> Unit,
@@ -1687,7 +1819,7 @@ private fun AquaHome(
     onExportClick: () -> Unit,
     onRetryClick: () -> Unit
 ) {
-    var showPackMenu by mutableStateOf(false)
+    var showPackMenu by remember { mutableStateOf(false) }
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
@@ -1797,7 +1929,8 @@ private fun AquaHome(
                     onItemClick = onItemClick,
                     onNewPackClick = onNewPackClick,
                     onNewCategoryClick = onNewCategoryClick,
-                    onAddAudioClick = onAddAudioClick,
+                    onImportAudioClick = onImportAudioClick,
+                    onRecordAudioClick = onRecordAudioClick,
                     onEditItemClick = onEditItemClick,
                     onDeleteItemClick = onDeleteItemClick
                 )
@@ -1815,7 +1948,8 @@ private fun ButtonPackBrowser(
     onItemClick: (ButtonItem) -> Unit,
     onNewPackClick: () -> Unit,
     onNewCategoryClick: () -> Unit,
-    onAddAudioClick: () -> Unit,
+    onImportAudioClick: () -> Unit,
+    onRecordAudioClick: () -> Unit,
     onEditItemClick: (ButtonItem) -> Unit,
     onDeleteItemClick: (ButtonItem) -> Unit
 ) {
@@ -1865,7 +1999,10 @@ private fun ButtonPackBrowser(
                 }
                 if (canAddAudio) {
                     item {
-                        AddAudioCard(onClick = onAddAudioClick)
+                        AddAudioCard(
+                            onImportClick = onImportAudioClick,
+                            onRecordClick = onRecordAudioClick
+                        )
                     }
                 }
             }
@@ -1962,8 +2099,8 @@ private fun NewPackDialog(
     onDismiss: () -> Unit,
     onCreate: (String, String) -> Unit
 ) {
-    var packName by mutableStateOf("")
-    var categoryName by mutableStateOf("General")
+    var packName by remember { mutableStateOf("") }
+    var categoryName by remember { mutableStateOf("General") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("New Pack") },
@@ -2004,7 +2141,7 @@ private fun NewCategoryDialog(
     onDismiss: () -> Unit,
     onCreate: (String) -> Unit
 ) {
-    var categoryName by mutableStateOf("")
+    var categoryName by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("New Category") },
@@ -2041,7 +2178,7 @@ private fun TextEditDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    var value by mutableStateOf(initialValue)
+    var value by remember(initialValue) { mutableStateOf(initialValue) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -2080,8 +2217,10 @@ private fun AudioButtonDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, ButtonCategory) -> Unit
 ) {
-    var buttonTitle by mutableStateOf(initialTitle)
-    var selectedCategory by mutableStateOf(initialCategory ?: categories.firstOrNull())
+    var buttonTitle by remember(initialTitle) { mutableStateOf(initialTitle) }
+    var selectedCategory by remember(initialCategory, categories) {
+        mutableStateOf(initialCategory ?: categories.firstOrNull())
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -2129,6 +2268,243 @@ private fun AudioButtonDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecordAudioDialog(
+    activity: ComponentActivity,
+    categories: List<ButtonCategory>,
+    initialCategory: ButtonCategory?,
+    onDismiss: () -> Unit,
+    onSave: (String, ButtonCategory, File) -> Unit
+) {
+    var buttonTitle by remember { mutableStateOf("Recorded Button") }
+    var selectedCategory by remember(initialCategory, categories) {
+        mutableStateOf(initialCategory ?: categories.firstOrNull())
+    }
+    var recordedFile by remember { mutableStateOf<File?>(null) }
+    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var previewPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var isRecording by remember { mutableStateOf(false) }
+    var isPreviewing by remember { mutableStateOf(false) }
+    var statusText by remember { mutableStateOf("Ready to record") }
+    var keepRecordedFile by remember { mutableStateOf(false) }
+
+    fun stopPreview() {
+        previewPlayer?.runCatching {
+            if (isPlaying) stop()
+            release()
+        }
+        previewPlayer = null
+        isPreviewing = false
+    }
+
+    fun startRecording() {
+        stopPreview()
+        recordedFile?.takeUnless { keepRecordedFile }?.delete()
+        val outputFile = File(
+            activity.cacheDir,
+            "buttonbox-recordings/recording-${System.currentTimeMillis()}.m4a"
+        )
+        outputFile.parentFile?.mkdirs()
+        runCatching {
+            @Suppress("DEPRECATION")
+            val mediaRecorder = MediaRecorder().apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioEncodingBitRate(128_000)
+                setAudioSamplingRate(44_100)
+                setOutputFile(outputFile.absolutePath)
+                prepare()
+                start()
+            }
+            recorder = mediaRecorder
+            recordedFile = outputFile
+            isRecording = true
+            statusText = "Recording..."
+        }.onFailure { error ->
+            outputFile.delete()
+            recorder = null
+            recordedFile = null
+            isRecording = false
+            statusText = error.message ?: "Failed to start recording"
+        }
+    }
+
+    fun stopRecording() {
+        val activeRecorder = recorder ?: return
+        runCatching { activeRecorder.stop() }
+            .onFailure {
+                recordedFile?.delete()
+                recordedFile = null
+                statusText = "Recording was too short"
+            }
+        activeRecorder.release()
+        recorder = null
+        isRecording = false
+        if (recordedFile?.takeIf { it.length() > 0L } != null) {
+            statusText = "Recording saved for preview"
+        }
+    }
+
+    fun playPreview() {
+        val file = recordedFile ?: return
+        if (isPreviewing) {
+            stopPreview()
+            statusText = "Preview stopped"
+            return
+        }
+        runCatching {
+            MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build()
+                )
+                setDataSource(file.absolutePath)
+                setOnCompletionListener {
+                    stopPreview()
+                    statusText = "Preview finished"
+                }
+                prepare()
+                start()
+                previewPlayer = this
+            }
+            isPreviewing = true
+            statusText = "Playing preview"
+        }.onFailure { error ->
+            stopPreview()
+            statusText = error.message ?: "Failed to play preview"
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            recorder?.runCatching {
+                if (isRecording) stop()
+                release()
+            }
+            previewPlayer?.runCatching {
+                if (isPlaying) stop()
+                release()
+            }
+            if (!keepRecordedFile) {
+                recordedFile?.delete()
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = {
+            if (isRecording) stopRecording()
+            onDismiss()
+        },
+        title = { Text("Record Audio") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = buttonTitle,
+                    onValueChange = { buttonTitle = it },
+                    label = { Text("Button title") },
+                    singleLine = true
+                )
+                Text(
+                    text = "Category",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color(0xFF625B71)
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    categories.forEach { category ->
+                        AssistChip(
+                            onClick = { selectedCategory = category },
+                            label = { Text(category.title) },
+                            leadingIcon = if (category.id == selectedCategory?.id) {
+                                { Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00B8C8))) }
+                            } else {
+                                null
+                            }
+                        )
+                    }
+                }
+                Text(statusText, color = Color(0xFF625B71))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            if (isRecording) stopRecording() else startRecording()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = if (isRecording) Icons.Filled.Stop else Icons.Filled.Mic,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(if (isRecording) "Stop" else "Record")
+                    }
+                    Button(
+                        onClick = ::playPreview,
+                        enabled = recordedFile != null && !isRecording,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = if (isPreviewing) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text("Preview")
+                    }
+                }
+                TextButton(
+                    onClick = {
+                        stopPreview()
+                        recordedFile?.delete()
+                        recordedFile = null
+                        statusText = "Ready to record"
+                    },
+                    enabled = recordedFile != null && !isRecording
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Re-record")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val file = recordedFile ?: return@TextButton
+                    val category = selectedCategory ?: return@TextButton
+                    stopPreview()
+                    keepRecordedFile = true
+                    onSave(buttonTitle, category, file)
+                },
+                enabled = recordedFile != null &&
+                    !isRecording &&
+                    buttonTitle.isNotBlank() &&
+                    selectedCategory != null
+            ) {
+                Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(8.dp))
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = {
+                if (isRecording) stopRecording()
+                onDismiss()
+            }) {
                 Text("Cancel")
             }
         }
@@ -2388,44 +2764,65 @@ private fun ButtonItemCard(
 }
 
 @Composable
-private fun AddAudioCard(onClick: () -> Unit) {
+private fun AddAudioCard(
+    onImportClick: () -> Unit,
+    onRecordClick: () -> Unit
+) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F2FF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE5D9FF))
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = null,
-                    tint = Color(0xFF6C2BFF)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE5D9FF))
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = null,
+                        tint = Color(0xFF6C2BFF)
+                    )
+                }
+                Spacer(Modifier.size(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Add Audio",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Import a file or record a new button",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF7A7286)
+                    )
+                }
             }
-            Spacer(Modifier.size(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Add Audio",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Import an audio file into this category",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF7A7286)
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onImportClick,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Import")
+                }
+                Button(
+                    onClick = onRecordClick,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Filled.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Record")
+                }
             }
         }
     }
