@@ -167,6 +167,9 @@ Current implementation:
 - `.buttonpack.zip` import now checks `schemaVersion` and rejects packs created
   for a newer format.
 - Import/export success messages include the affected button count.
+- Import opens a preview dialog before writing data, including pack metadata,
+  schema version, category/button/media counts, and same-id conflicts.
+- Same-id imports can replace the existing pack or be imported as a copy.
 - User packs can be deleted with confirmation. Deleting a pack removes its
   categories, buttons, trigger phrases, and app-private media directory.
 - Packs can be renamed from the top app bar actions menu.

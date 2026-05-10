@@ -17,6 +17,9 @@ buttons can all live in the same pack system.
 - Room-backed local pack database foundation.
 - `.buttonpack.zip` import/export foundation for portable audio packs, with
   schema-version checks and clearer success/failure messages.
+- Import preview shows pack metadata, category/button counts, media counts, and
+  same-id conflicts before writing anything.
+- Same-id imports can either replace the existing pack or import as a copy.
 - Custom pack creation plus guided single-audio import into any selected pack.
 - Rename packs/categories/buttons, move buttons between categories, and delete
   categories with confirmation.
@@ -45,7 +48,9 @@ Release assets are published with explicit names:
   be imported into either APK.
 
 To import a pack, install either APK, open ButtonBox, tap the top-right pack
-actions menu, choose `Import`, then select the `.buttonpack.zip` file.
+actions menu, choose `Import`, then select the `.buttonpack.zip` file. ButtonBox
+will preview the pack first; confirm `Import`, choose `Replace` for an existing
+same-id pack, or choose `Import Copy` to keep both.
 
 ## Build
 
