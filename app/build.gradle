@@ -4,7 +4,7 @@ plugins {
     id 'com.google.devtools.ksp'
 }
 
-def buttonBoxVersionName = '2.15-sort-controls'
+def buttonBoxVersionName = '2.16-menu-polish'
 
 android {
     namespace 'aquacrew.aquabutton'
@@ -14,7 +14,7 @@ android {
         applicationId 'com.znbsf.buttonbox'
         minSdk 24
         targetSdk 36
-        versionCode 17
+        versionCode 18
         versionName buttonBoxVersionName
     }
 

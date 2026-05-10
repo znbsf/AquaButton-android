@@ -180,6 +180,10 @@ Current implementation:
 - User-owned categories can be moved up/down from the top app bar actions menu.
 - User-owned buttons can be moved up/down inside the selected category from the
   list controls; ordering is saved in Room and survives app restart.
+- Per-button actions now live in a compact overflow menu, reducing right-side
+  crowding on cards with long titles.
+- Pack actions are grouped into pack, category, and danger sections, and import
+  preview copy now explains schema support, media counts, and conflict choices.
 - Imported audio buttons in user packs can be deleted with confirmation.
   Deleting a button removes its database row, trigger phrases, and copied media
   file.

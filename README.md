@@ -27,6 +27,8 @@ buttons can all live in the same pack system.
   categories with confirmation.
 - Move user-owned categories and buttons up/down; ordering is stored locally and
   survives restart.
+- Button card actions are tucked into a per-button overflow menu so long titles
+  have more room and destructive actions are less easy to hit by accident.
 - Delete packs and buttons with confirmation, including bundled Aqua/Mea
   content as local hidden state.
 - Add categories and imported audio to any selected pack, including bundled
@@ -123,12 +125,13 @@ Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
 add categories and imported audio to them. Imported audio files are copied into
 app-private storage, can be deleted, and can be exported again as part of a
 `.buttonpack.zip`. Pack rename, category rename/delete, `Delete Pack`,
-`Import`, and `Export` live in the top app bar pack actions menu; destructive
-actions ask for confirmation. Buttons can be renamed, moved to another category,
-reordered inside a category, or deleted from the list. User-owned categories can
-also be moved up/down from the pack actions menu. Deleting built-in content
-records a local hidden-state preference so the app stops reseeding it on startup;
-it does not rewrite APK assets.
+`Import`, and `Export` live in the top app bar pack actions menu, grouped into
+pack, category, and danger sections. Destructive actions ask for confirmation.
+Buttons can be renamed, moved to another category, reordered inside a category,
+or deleted from the per-button overflow menu. User-owned categories can also be
+moved up/down from the pack actions menu. Deleting built-in content records a
+local hidden-state preference so the app stops reseeding it on startup; it does
+not rewrite APK assets.
 
 ## Source Credits
 

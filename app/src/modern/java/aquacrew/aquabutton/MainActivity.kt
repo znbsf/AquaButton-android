@@ -1976,6 +1976,7 @@ private fun AquaHome(
                         expanded = showPackMenu,
                         onDismissRequest = { showPackMenu = false }
                     ) {
+                        DropdownMenuHeader("Pack")
                         DropdownMenuItem(
                             text = { Text("Rename Pack") },
                             enabled = state.selectedPack != null,
@@ -1984,6 +1985,22 @@ private fun AquaHome(
                                 onRenamePackClick()
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text("Import Pack") },
+                            onClick = {
+                                showPackMenu = false
+                                onImportClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export Pack") },
+                            enabled = selectedPack != null,
+                            onClick = {
+                                showPackMenu = false
+                                onExportClick()
+                            }
+                        )
+                        DropdownMenuHeader("Category")
                         DropdownMenuItem(
                             text = { Text("Rename Category") },
                             enabled = selectedCategory != null,
@@ -2013,29 +2030,29 @@ private fun AquaHome(
                         DropdownMenuItem(
                             text = { Text("Delete Category") },
                             enabled = selectedCategory != null,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Delete,
+                                    contentDescription = null,
+                                    tint = Color(0xFFB3261E)
+                                )
+                            },
                             onClick = {
                                 showPackMenu = false
                                 onDeleteCategoryClick()
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("Import Pack") },
-                            onClick = {
-                                showPackMenu = false
-                                onImportClick()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Export Pack") },
-                            enabled = selectedPack != null,
-                            onClick = {
-                                showPackMenu = false
-                                onExportClick()
-                            }
-                        )
+                        DropdownMenuHeader("Danger")
                         DropdownMenuItem(
                             text = { Text("Delete Pack") },
                             enabled = selectedPack != null,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Delete,
+                                    contentDescription = null,
+                                    tint = Color(0xFFB3261E)
+                                )
+                            },
                             onClick = {
                                 showPackMenu = false
                                 onDeletePackClick()
@@ -2093,6 +2110,16 @@ private fun AquaHome(
             }
         }
     }
+}
+
+@Composable
+private fun DropdownMenuHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = Color(0xFF7A7286),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    )
 }
 
 @Composable
@@ -2192,6 +2219,11 @@ private fun ImportPreviewDialog(
             "This matches the built-in pack named ${preview.existingPackName}. Import a copy to keep both."
         else -> "This matches the existing pack named ${preview.existingPackName}."
     }
+    val actionText = when {
+        preview.existingPackName == null -> "Ready to import as a new pack."
+        preview.existingPackIsBuiltIn -> "Replace is disabled for built-in packs; import a copy instead."
+        else -> "Choose Replace to overwrite the existing pack, or Import Copy to keep both."
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Import Pack") },
@@ -2199,10 +2231,14 @@ private fun ImportPreviewDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(preview.name, fontWeight = FontWeight.Bold)
                 Text("Author: ${preview.author}")
-                Text("Schema: v${preview.schemaVersion}")
-                Text("Categories: ${preview.categoryCount}")
-                Text("Buttons: ${preview.itemCount} (${preview.audioCount} audio, ${preview.videoCount} video)")
+                Text("Format: schema v${preview.schemaVersion}, supported.")
+                Text("Contents: ${preview.categoryCount} categories, ${preview.itemCount} buttons.")
+                Text("Media: ${preview.audioCount} audio, ${preview.videoCount} video.")
                 Text(conflictText)
+                Text(
+                    text = actionText,
+                    color = Color(0xFF625B71)
+                )
                 if (preview.description.isNotBlank()) {
                     Text(
                         text = preview.description,
@@ -2875,6 +2911,7 @@ private fun ButtonItemCard(
     onMoveDownClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
+    var showItemMenu by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -2918,39 +2955,65 @@ private fun ButtonItemCard(
                 )
             }
             if (canDelete) {
-                IconButton(
-                    onClick = onMoveUpClick,
-                    enabled = canMoveUp
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.KeyboardArrowUp,
-                        contentDescription = "Move button up",
-                        tint = if (canMoveUp) Color(0xFF625B71) else Color(0xFFC8C1D0)
-                    )
-                }
-                IconButton(
-                    onClick = onMoveDownClick,
-                    enabled = canMoveDown
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.KeyboardArrowDown,
-                        contentDescription = "Move button down",
-                        tint = if (canMoveDown) Color(0xFF625B71) else Color(0xFFC8C1D0)
-                    )
-                }
-                IconButton(onClick = onEditClick) {
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "Edit button",
-                        tint = Color(0xFF625B71)
-                    )
-                }
-                IconButton(onClick = onDeleteClick) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "Delete button",
-                        tint = Color(0xFFB3261E)
-                    )
+                Box {
+                    IconButton(onClick = { showItemMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = "Button actions",
+                            tint = Color(0xFF625B71)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showItemMenu,
+                        onDismissRequest = { showItemMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Move Up") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
+                            },
+                            enabled = canMoveUp,
+                            onClick = {
+                                showItemMenu = false
+                                onMoveUpClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Move Down") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                            },
+                            enabled = canMoveDown,
+                            onClick = {
+                                showItemMenu = false
+                                onMoveDownClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Edit") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Edit, contentDescription = null)
+                            },
+                            onClick = {
+                                showItemMenu = false
+                                onEditClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Delete,
+                                    contentDescription = null,
+                                    tint = Color(0xFFB3261E)
+                                )
+                            },
+                            onClick = {
+                                showItemMenu = false
+                                onDeleteClick()
+                            }
+                        )
+                    }
                 }
             }
         }
