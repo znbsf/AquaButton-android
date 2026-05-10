@@ -2,7 +2,7 @@
 
 ButtonBox is a modern Android button-pack app rebuilt with Jetpack Compose. It
 started from AquaButton, but the new architecture is intentionally generic:
-voice buttons, meme soundboards, game clips, custom recordings, and future video
+voice buttons, meme soundboards, game clips, custom recordings, and video
 buttons can all live in the same pack system.
 
 ## Current Features
@@ -23,6 +23,8 @@ buttons can all live in the same pack system.
 - Custom pack creation plus guided single-audio import into any selected pack.
 - Record new audio buttons with the microphone, preview/re-record before
   saving, and export the recorded `.m4a` media inside `.buttonpack.zip` packs.
+- Import video buttons into packs and open them through the Android system
+  video player using app-private `FileProvider` access.
 - Rename packs/categories/buttons, move buttons between categories, and delete
   categories with confirmation.
 - Move user-owned categories and buttons up/down; ordering is stored locally and
@@ -84,7 +86,7 @@ Install on a connected emulator or device:
 Development is tracked in [ROADMAP.md](./ROADMAP.md). The next major phases are:
 
 - Richer pack import conflict previews and cleaner advanced-actions UI.
-- Video buttons.
+- More polished in-app video playback with automatic return.
 - Foreground voice-recognition triggers.
 
 The current app already stores the built-in packs through a Room database. This
@@ -95,7 +97,7 @@ read-only app assets.
 ## Button Pack Format
 
 ButtonBox uses a zip-based `.buttonpack.zip` format. The current foundation
-supports audio packs and reserves the same structure for future video packs.
+supports audio packs and video file paths in the same manifest.
 
 ```text
 pack.json
@@ -112,9 +114,9 @@ storage so packs stay portable after import.
 
 Use `New Pack` to create a user-owned pack with an initial category. `New Pack`
 uses the same chip style as regular pack tabs. `Add Category` appears at the
-end of the category chips, and `Add Audio` appears as the last card in the
-shown button list. Choosing an audio file opens an edit dialog so the title and
-target category can be checked before the button is created.
+end of the category chips, and `Add Media` appears as the last card in the
+shown button list. Choosing an audio or video file opens an edit dialog so the
+title and target category can be checked before the button is created.
 
 The same `Add Audio` card can also record from the microphone. Tap `Record`,
 stop when done, optionally preview or re-record, then save the recording into

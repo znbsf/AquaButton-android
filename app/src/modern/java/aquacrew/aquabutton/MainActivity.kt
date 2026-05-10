@@ -2,6 +2,7 @@ package aquacrew.aquabutton
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.AssetManager
 import android.media.AudioAttributes
@@ -89,6 +90,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -158,6 +160,9 @@ data class ButtonItem(
     val remoteUrl: String?,
     val localPath: String?
 )
+
+private val ButtonItem.isVideo: Boolean
+    get() = mediaType.trim().equals("video", ignoreCase = true)
 
 data class ImportPackPreview(
     val uri: Uri,
@@ -696,6 +701,38 @@ class ButtonPackRepository(
     }
 
     suspend fun importAudioButton(packId: String, categoryId: String, uri: Uri, title: String): String {
+        return importLocalMediaButton(
+            packId = packId,
+            categoryId = categoryId,
+            uri = uri,
+            title = title,
+            mediaType = "audio",
+            defaultExtension = "mp3",
+            defaultTitle = "Audio Button"
+        )
+    }
+
+    suspend fun importVideoButton(packId: String, categoryId: String, uri: Uri, title: String): String {
+        return importLocalMediaButton(
+            packId = packId,
+            categoryId = categoryId,
+            uri = uri,
+            title = title,
+            mediaType = "video",
+            defaultExtension = "mp4",
+            defaultTitle = "Video Button"
+        )
+    }
+
+    private suspend fun importLocalMediaButton(
+        packId: String,
+        categoryId: String,
+        uri: Uri,
+        title: String,
+        mediaType: String,
+        defaultExtension: String,
+        defaultTitle: String
+    ): String {
         val dao = database.buttonPackDao()
         val pack = dao.getPack(packId)
         requireNotNull(pack) { "Selected pack no longer exists" }
@@ -703,20 +740,21 @@ class ButtonPackRepository(
         requireNotNull(category) { "Selected category no longer exists" }
 
         val displayName = context.displayName(uri)
-        val extension = displayName.substringAfterLast('.', "mp3").safeExtension()
+        val extension = displayName.substringAfterLast('.', defaultExtension).safeExtension()
         val itemTitle = title.trim().ifBlank {
-            displayName.substringBeforeLast('.').ifBlank { "Audio Button" }
+            displayName.substringBeforeLast('.').ifBlank { defaultTitle }
         }
         val itemId = "${itemTitle.safeId()}-${UUID.randomUUID().toString().take(8)}"
         val mediaFile = File(
             context.filesDir,
-            "button_packs/$packId/assets/audio/${itemId.safeId()}.$extension"
+            "button_packs/$packId/assets/$mediaType/${itemId.safeId()}.$extension"
         )
         mediaFile.parentFile?.mkdirs()
         context.contentResolver.openInputStream(uri).use { input ->
-            requireNotNull(input) { "Cannot open selected audio" }
+            requireNotNull(input) { "Cannot open selected $mediaType" }
             mediaFile.outputStream().use { output -> input.copyTo(output) }
         }
+        require(mediaFile.length() > 0L) { "Selected $mediaType is empty" }
 
         database.withTransaction {
             dao.insertItems(
@@ -726,7 +764,7 @@ class ButtonPackRepository(
                         packId = packId,
                         categoryId = categoryId,
                         title = itemTitle,
-                        mediaType = "audio",
+                        mediaType = mediaType,
                         assetPath = null,
                         remoteUrl = null,
                         localPath = mediaFile.absolutePath,
@@ -1284,15 +1322,33 @@ class AquaViewModel : ViewModel() {
     }
 
     fun importAudio(activity: ComponentActivity, uri: Uri, title: String, category: ButtonCategory) {
+        importMedia(activity, uri, title, category, mediaType = "audio")
+    }
+
+    fun importVideo(activity: ComponentActivity, uri: Uri, title: String, category: ButtonCategory) {
+        importMedia(activity, uri, title, category, mediaType = "video")
+    }
+
+    private fun importMedia(
+        activity: ComponentActivity,
+        uri: Uri,
+        title: String,
+        category: ButtonCategory,
+        mediaType: String
+    ) {
         val pack = state.selectedPack ?: return
-        state = state.copy(error = null, notice = "Adding audio")
+        state = state.copy(error = null, notice = "Adding $mediaType")
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
                     val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
                         repository = it
                     }
-                    val itemDbId = repo.importAudioButton(pack.id, category.id, uri, title)
+                    val itemDbId = if (mediaType == "video") {
+                        repo.importVideoButton(pack.id, category.id, uri, title)
+                    } else {
+                        repo.importAudioButton(pack.id, category.id, uri, title)
+                    }
                     itemDbId to repo.loadPacks()
                 }
             }.onSuccess { (itemDbId, packs) ->
@@ -1306,11 +1362,11 @@ class AquaViewModel : ViewModel() {
                     selectedCategoryId = category.id,
                     query = "",
                     error = null,
-                    notice = "Added ${importedItem?.title ?: "audio"}"
+                    notice = "Added ${importedItem?.title ?: mediaType}"
                 )
             }.onFailure { error ->
                 state = state.copy(
-                    error = error.message ?: "Failed to add audio",
+                    error = error.message ?: "Failed to add $mediaType",
                     notice = null
                 )
             }
@@ -1602,6 +1658,11 @@ class AquaViewModel : ViewModel() {
     }
 
     fun play(item: ButtonItem) {
+        if (item.isVideo) {
+            stop()
+            state = state.copy(error = null, notice = "Opening ${item.title}")
+            return
+        }
         stop()
         val player = MediaPlayer().apply {
             setAudioAttributes(
@@ -1643,8 +1704,14 @@ class AquaViewModel : ViewModel() {
     }
 
     fun playRandom() {
-        val items = state.selectedPack?.categories?.flatMap { it.items }.orEmpty()
-        if (items.isNotEmpty()) play(items.random())
+        val items = state.selectedPack?.categories?.flatMap { it.items }
+            .orEmpty()
+            .filterNot { it.isVideo }
+        if (items.isNotEmpty()) {
+            play(items.random())
+        } else {
+            state = state.copy(error = null, notice = "No audio buttons to shuffle")
+        }
     }
 
     fun stop() {
@@ -1680,8 +1747,10 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
     var showDeletePackDialog by remember { mutableStateOf(false) }
     var showRecordAudioDialog by remember { mutableStateOf(false) }
     var pendingAudioUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
     var pendingEditItem by remember { mutableStateOf<ButtonItem?>(null) }
     var pendingDeleteItem by remember { mutableStateOf<ButtonItem?>(null) }
+    var fullscreenVideoItem by remember { mutableStateOf<ButtonItem?>(null) }
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -1696,6 +1765,11 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) pendingAudioUri = uri
+    }
+    val videoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) pendingVideoUri = uri
     }
     val recordPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -1726,12 +1800,20 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onPackClick = viewModel::selectPack,
                 onCategoryClick = viewModel::selectCategory,
                 onQueryChange = viewModel::updateQuery,
-                onItemClick = viewModel::play,
+                onItemClick = { item ->
+                    if (item.isVideo) {
+                        viewModel.stop()
+                        fullscreenVideoItem = item
+                    } else {
+                        viewModel.play(item)
+                    }
+                },
                 onRandomClick = viewModel::playRandom,
                 onStopClick = viewModel::stop,
                 onNewPackClick = { showNewPackDialog = true },
                 onNewCategoryClick = { showNewCategoryDialog = true },
                 onImportAudioClick = { audioLauncher.launch(arrayOf("audio/*")) },
+                onImportVideoClick = { videoLauncher.launch(arrayOf("video/*")) },
                 onRecordAudioClick = {
                     if (
                         ContextCompat.checkSelfPermission(
@@ -1886,6 +1968,23 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                     }
                 )
             }
+            pendingVideoUri?.let { uri ->
+                val selectedPack = viewModel.state.selectedPack
+                val categories = selectedPack?.categories.orEmpty()
+                val defaultTitle = activity.displayName(uri).substringBeforeLast('.').ifBlank { "Video Button" }
+                AudioButtonDialog(
+                    title = "Add Video",
+                    initialTitle = defaultTitle,
+                    categories = categories,
+                    initialCategory = viewModel.state.selectedCategory,
+                    confirmText = "Add",
+                    onDismiss = { pendingVideoUri = null },
+                    onConfirm = { buttonTitle, category ->
+                        pendingVideoUri = null
+                        viewModel.importVideo(activity, uri, buttonTitle, category)
+                    }
+                )
+            }
             if (showRecordAudioDialog) {
                 val selectedPack = viewModel.state.selectedPack
                 val categories = selectedPack?.categories.orEmpty()
@@ -1915,6 +2014,17 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                     }
                 )
             }
+            fullscreenVideoItem?.let { item ->
+                ExternalVideoLauncher(
+                    activity = activity,
+                    item = item,
+                    onDone = { fullscreenVideoItem = null },
+                    onError = { message ->
+                        fullscreenVideoItem = null
+                        viewModel.showNotice(message)
+                    }
+                )
+            }
         }
     }
 }
@@ -1932,6 +2042,7 @@ private fun AquaHome(
     onNewPackClick: () -> Unit,
     onNewCategoryClick: () -> Unit,
     onImportAudioClick: () -> Unit,
+    onImportVideoClick: () -> Unit,
     onRecordAudioClick: () -> Unit,
     onRenamePackClick: () -> Unit,
     onRenameCategoryClick: () -> Unit,
@@ -2101,6 +2212,7 @@ private fun AquaHome(
                     onNewPackClick = onNewPackClick,
                     onNewCategoryClick = onNewCategoryClick,
                     onImportAudioClick = onImportAudioClick,
+                    onImportVideoClick = onImportVideoClick,
                     onRecordAudioClick = onRecordAudioClick,
                     onEditItemClick = onEditItemClick,
                     onMoveItemUpClick = onMoveItemUpClick,
@@ -2132,6 +2244,7 @@ private fun ButtonPackBrowser(
     onNewPackClick: () -> Unit,
     onNewCategoryClick: () -> Unit,
     onImportAudioClick: () -> Unit,
+    onImportVideoClick: () -> Unit,
     onRecordAudioClick: () -> Unit,
     onEditItemClick: (ButtonItem) -> Unit,
     onMoveItemUpClick: (ButtonItem) -> Unit,
@@ -2198,6 +2311,7 @@ private fun ButtonPackBrowser(
                     item {
                         AddAudioCard(
                             onImportClick = onImportAudioClick,
+                            onImportVideoClick = onImportVideoClick,
                             onRecordClick = onRecordAudioClick
                         )
                     }
@@ -2934,7 +3048,11 @@ private fun ButtonItemCard(
                     .background(if (isPlaying) Color(0xFF00B8C8) else Color(0xFFEDE7F6))
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                    imageVector = if (item.isVideo) {
+                        Icons.Filled.PlayArrow
+                    } else {
+                        Icons.AutoMirrored.Filled.VolumeUp
+                    },
                     contentDescription = null,
                     tint = if (isPlaying) Color.White else Color(0xFF6C2BFF)
                 )
@@ -3021,8 +3139,33 @@ private fun ButtonItemCard(
 }
 
 @Composable
+private fun ExternalVideoLauncher(
+    activity: ComponentActivity,
+    item: ButtonItem,
+    onDone: () -> Unit,
+    onError: (String) -> Unit
+) {
+    LaunchedEffect(item.id, item.localPath, item.assetPath, item.remoteUrl) {
+        val result = runCatching {
+            val uri = activity.videoUriFor(item)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "video/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            activity.startActivity(intent)
+        }
+        if (result.isSuccess) {
+            onDone()
+        } else {
+            onError("Cannot open ${item.title}")
+        }
+    }
+}
+
+@Composable
 private fun AddAudioCard(
     onImportClick: () -> Unit,
+    onImportVideoClick: () -> Unit,
     onRecordClick: () -> Unit
 ) {
     Card(
@@ -3052,12 +3195,12 @@ private fun AddAudioCard(
                 Spacer(Modifier.size(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Add Audio",
+                        text = "Add Media",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Import a file or record a new button",
+                        text = "Import audio/video or record a new audio button",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF7A7286)
                     )
@@ -3070,7 +3213,15 @@ private fun AddAudioCard(
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("Import")
+                    Text("Audio")
+                }
+                Button(
+                    onClick = onImportVideoClick,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Video")
                 }
                 Button(
                     onClick = onRecordClick,
@@ -3292,6 +3443,30 @@ private fun Context.displayName(uri: Uri): String {
     }
     return uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null }
         ?: "audio-${System.currentTimeMillis()}.mp3"
+}
+
+private fun ComponentActivity.videoUriFor(item: ButtonItem): Uri {
+    item.remoteUrl?.let { return Uri.parse(it) }
+    item.localPath?.let { path ->
+        return FileProvider.getUriForFile(
+            this,
+            "${BuildConfig.APPLICATION_ID}.fileprovider",
+            File(path)
+        )
+    }
+    item.assetPath?.let { assetPath ->
+        val cacheFile = File(cacheDir, "buttonbox-video-cache/${assetPath.substringAfterLast('/')}")
+        cacheFile.parentFile?.mkdirs()
+        assets.open(assetPath).use { input ->
+            cacheFile.outputStream().use { output -> input.copyTo(output) }
+        }
+        return FileProvider.getUriForFile(
+            this,
+            "${BuildConfig.APPLICATION_ID}.fileprovider",
+            cacheFile
+        )
+    }
+    error("Video has no playable source")
 }
 
 private fun safeZipFile(root: File, entry: ZipEntry): File {
