@@ -134,8 +134,7 @@ Current implementation:
 
 ## Phase 4: Custom Audio Buttons
 
-Status: recording and management polish completed; category sorting still
-planned.
+Status: recording, management polish, and basic ordering controls completed.
 
 Goal: let users create their own audio buttons.
 
@@ -178,6 +177,9 @@ Current implementation:
 - Packs can be renamed from the top app bar actions menu.
 - Categories can be renamed or deleted from the top app bar actions menu.
 - Buttons can be renamed and moved between categories from the list edit action.
+- User-owned categories can be moved up/down from the top app bar actions menu.
+- User-owned buttons can be moved up/down inside the selected category from the
+  list controls; ordering is saved in Room and survives app restart.
 - Imported audio buttons in user packs can be deleted with confirmation.
   Deleting a button removes its database row, trigger phrases, and copied media
   file.
@@ -194,7 +196,8 @@ Current implementation:
 - A full recording regression was verified on an emulator: record, preview,
   save, play, export the pack, clear app data, re-import the exported pack, and
   play the recorded button again.
-- Category sorting is still planned.
+- Ordering controls were smoke-tested on an imported pack in the emulator:
+  button order persisted in Room and category chip order updated immediately.
 
 ## Phase 5: Video Buttons
 
@@ -244,6 +247,6 @@ Done when:
 
 ## Current Recommended Next Step
 
-Move into the remaining Phase 4 polish: category sorting, richer import
-conflict handling, and better validation messages. After that, start Phase 5
-video buttons on the same pack/media model.
+Move into the remaining Phase 4 polish: richer import conflict handling,
+better validation messages, and a less crowded advanced-actions UI. After that,
+start Phase 5 video buttons on the same pack/media model.

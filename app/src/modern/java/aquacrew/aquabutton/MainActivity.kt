@@ -43,6 +43,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -180,6 +182,11 @@ enum class ImportPackMode {
     Copy
 }
 
+enum class SortDirection {
+    Up,
+    Down
+}
+
 @Entity(tableName = "packs")
 data class PackEntity(
     @PrimaryKey val id: String,
@@ -302,6 +309,9 @@ interface ButtonPackDao {
     @Query("UPDATE categories SET title = :title WHERE id = :categoryId")
     suspend fun renameCategory(categoryId: String, title: String)
 
+    @Query("UPDATE categories SET sortOrder = :sortOrder WHERE id = :categoryId")
+    suspend fun updateCategorySortOrder(categoryId: String, sortOrder: Int)
+
     @Query("DELETE FROM trigger_phrases WHERE itemId IN (SELECT id FROM button_items WHERE categoryId = :categoryId)")
     suspend fun deleteTriggerPhrasesForCategory(categoryId: String)
 
@@ -313,6 +323,9 @@ interface ButtonPackDao {
 
     @Query("UPDATE button_items SET title = :title, categoryId = :categoryId, sortOrder = :sortOrder WHERE id = :itemId")
     suspend fun updateButton(itemId: String, title: String, categoryId: String, sortOrder: Int)
+
+    @Query("UPDATE button_items SET sortOrder = :sortOrder WHERE id = :itemId")
+    suspend fun updateButtonSortOrder(itemId: String, sortOrder: Int)
 }
 
 @Database(
@@ -806,6 +819,31 @@ class ButtonPackRepository(
         }
     }
 
+    suspend fun moveCategory(categoryId: String, direction: SortDirection) {
+        val dao = database.buttonPackDao()
+        val category = dao.getCategory(categoryId)
+        requireNotNull(category) { "Selected category no longer exists" }
+        val pack = dao.getPack(category.packId)
+        requireNotNull(pack) { "Selected pack no longer exists" }
+        require(!pack.isBuiltIn) { "Built-in pack order cannot be changed" }
+        val categories = dao.getCategories().filter { it.packId == category.packId }
+        val index = categories.indexOfFirst { it.id == categoryId }
+        require(index >= 0) { "Selected category no longer exists" }
+        val targetIndex = when (direction) {
+            SortDirection.Up -> index - 1
+            SortDirection.Down -> index + 1
+        }
+        if (targetIndex !in categories.indices) return
+        val reordered = categories.toMutableList().apply {
+            add(targetIndex, removeAt(index))
+        }
+        database.withTransaction {
+            reordered.forEachIndexed { sortOrder, entity ->
+                dao.updateCategorySortOrder(entity.id, sortOrder)
+            }
+        }
+    }
+
     suspend fun updateButton(item: ButtonItem, title: String, categoryId: String) {
         val cleanTitle = title.trim()
         require(cleanTitle.isNotBlank()) { "Button title is required" }
@@ -822,6 +860,32 @@ class ButtonPackRepository(
             dao.getMaxItemSortOrder(categoryId) + 1
         }
         dao.updateButton(itemDbId, cleanTitle, categoryId, sortOrder)
+    }
+
+    suspend fun moveButton(item: ButtonItem, direction: SortDirection) {
+        val dao = database.buttonPackDao()
+        val pack = dao.getPack(item.packId)
+        requireNotNull(pack) { "Selected pack no longer exists" }
+        require(!pack.isBuiltIn) { "Built-in pack order cannot be changed" }
+        val itemDbId = "${item.packId}:${item.id}"
+        val entity = dao.getItem(itemDbId)
+        requireNotNull(entity) { "Button no longer exists" }
+        val items = dao.getItems().filter { it.categoryId == entity.categoryId }
+        val index = items.indexOfFirst { it.id == itemDbId }
+        require(index >= 0) { "Button no longer exists" }
+        val targetIndex = when (direction) {
+            SortDirection.Up -> index - 1
+            SortDirection.Down -> index + 1
+        }
+        if (targetIndex !in items.indices) return
+        val reordered = items.toMutableList().apply {
+            add(targetIndex, removeAt(index))
+        }
+        database.withTransaction {
+            reordered.forEachIndexed { sortOrder, itemEntity ->
+                dao.updateButtonSortOrder(itemEntity.id, sortOrder)
+            }
+        }
     }
 
     suspend fun deletePack(packId: String) {
@@ -1355,6 +1419,34 @@ class AquaViewModel : ViewModel() {
         }
     }
 
+    fun moveSelectedCategory(activity: ComponentActivity, direction: SortDirection) {
+        val pack = state.selectedPack ?: return
+        val category = state.selectedCategory ?: return
+        state = state.copy(error = null, notice = "Moving ${category.title}")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    repo.moveCategory(category.id, direction)
+                    repo.loadPacks()
+                }
+            }.onSuccess { packs ->
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = pack.id,
+                    selectedCategoryId = category.id,
+                    query = "",
+                    error = null,
+                    notice = "Moved ${category.title}"
+                )
+            }.onFailure { error ->
+                state = state.copy(error = error.message ?: "Failed to move category", notice = null)
+            }
+        }
+    }
+
     fun deleteSelectedCategory(activity: ComponentActivity) {
         val pack = state.selectedPack ?: return
         val category = state.selectedCategory ?: return
@@ -1409,6 +1501,34 @@ class AquaViewModel : ViewModel() {
                 )
             }.onFailure { error ->
                 state = state.copy(error = error.message ?: "Failed to update button", notice = null)
+            }
+        }
+    }
+
+    fun moveButton(activity: ComponentActivity, item: ButtonItem, direction: SortDirection) {
+        val pack = state.selectedPack ?: return
+        state = state.copy(error = null, notice = "Moving ${item.title}")
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
+                        repository = it
+                    }
+                    repo.moveButton(item, direction)
+                    repo.loadPacks()
+                }
+            }.onSuccess { packs ->
+                val updatedPack = packs.firstOrNull { it.id == pack.id }
+                state = state.copy(
+                    packs = packs,
+                    selectedPackId = updatedPack?.id ?: state.selectedPackId,
+                    selectedCategoryId = item.categoryId,
+                    query = "",
+                    error = null,
+                    notice = "Moved ${item.title}"
+                )
+            }.onFailure { error ->
+                state = state.copy(error = error.message ?: "Failed to move button", notice = null)
             }
         }
     }
@@ -1626,9 +1746,13 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 },
                 onRenamePackClick = { showRenamePackDialog = true },
                 onRenameCategoryClick = { showRenameCategoryDialog = true },
+                onMoveCategoryUpClick = { viewModel.moveSelectedCategory(activity, SortDirection.Up) },
+                onMoveCategoryDownClick = { viewModel.moveSelectedCategory(activity, SortDirection.Down) },
                 onDeleteCategoryClick = { showDeleteCategoryDialog = true },
                 onDeletePackClick = { showDeletePackDialog = true },
                 onEditItemClick = { pendingEditItem = it },
+                onMoveItemUpClick = { viewModel.moveButton(activity, it, SortDirection.Up) },
+                onMoveItemDownClick = { viewModel.moveButton(activity, it, SortDirection.Down) },
                 onDeleteItemClick = { pendingDeleteItem = it },
                 onImportClick = {
                     importLauncher.launch(
@@ -1811,15 +1935,27 @@ private fun AquaHome(
     onRecordAudioClick: () -> Unit,
     onRenamePackClick: () -> Unit,
     onRenameCategoryClick: () -> Unit,
+    onMoveCategoryUpClick: () -> Unit,
+    onMoveCategoryDownClick: () -> Unit,
     onDeleteCategoryClick: () -> Unit,
     onDeletePackClick: () -> Unit,
     onEditItemClick: (ButtonItem) -> Unit,
+    onMoveItemUpClick: (ButtonItem) -> Unit,
+    onMoveItemDownClick: (ButtonItem) -> Unit,
     onDeleteItemClick: (ButtonItem) -> Unit,
     onImportClick: () -> Unit,
     onExportClick: () -> Unit,
     onRetryClick: () -> Unit
 ) {
     var showPackMenu by remember { mutableStateOf(false) }
+    val selectedPack = state.selectedPack
+    val selectedCategory = state.selectedCategory
+    val selectedCategoryIndex = selectedPack?.categories.orEmpty()
+        .indexOfFirst { it.id == selectedCategory?.id }
+    val canSortSelectedCategory = selectedPack != null &&
+        !selectedPack.isBuiltIn &&
+        selectedCategory != null &&
+        state.query.isBlank()
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
@@ -1850,15 +1986,33 @@ private fun AquaHome(
                         )
                         DropdownMenuItem(
                             text = { Text("Rename Category") },
-                            enabled = state.selectedCategory != null,
+                            enabled = selectedCategory != null,
                             onClick = {
                                 showPackMenu = false
                                 onRenameCategoryClick()
                             }
                         )
                         DropdownMenuItem(
+                            text = { Text("Move Category Up") },
+                            enabled = canSortSelectedCategory && selectedCategoryIndex > 0,
+                            onClick = {
+                                showPackMenu = false
+                                onMoveCategoryUpClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Move Category Down") },
+                            enabled = canSortSelectedCategory &&
+                                selectedCategoryIndex >= 0 &&
+                                selectedCategoryIndex < selectedPack.categories.lastIndex,
+                            onClick = {
+                                showPackMenu = false
+                                onMoveCategoryDownClick()
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Delete Category") },
-                            enabled = state.selectedCategory != null,
+                            enabled = selectedCategory != null,
                             onClick = {
                                 showPackMenu = false
                                 onDeleteCategoryClick()
@@ -1873,7 +2027,7 @@ private fun AquaHome(
                         )
                         DropdownMenuItem(
                             text = { Text("Export Pack") },
-                            enabled = state.selectedPack != null,
+                            enabled = selectedPack != null,
                             onClick = {
                                 showPackMenu = false
                                 onExportClick()
@@ -1881,7 +2035,7 @@ private fun AquaHome(
                         )
                         DropdownMenuItem(
                             text = { Text("Delete Pack") },
-                            enabled = state.selectedPack != null,
+                            enabled = selectedPack != null,
                             onClick = {
                                 showPackMenu = false
                                 onDeletePackClick()
@@ -1932,6 +2086,8 @@ private fun AquaHome(
                     onImportAudioClick = onImportAudioClick,
                     onRecordAudioClick = onRecordAudioClick,
                     onEditItemClick = onEditItemClick,
+                    onMoveItemUpClick = onMoveItemUpClick,
+                    onMoveItemDownClick = onMoveItemDownClick,
                     onDeleteItemClick = onDeleteItemClick
                 )
             }
@@ -1951,6 +2107,8 @@ private fun ButtonPackBrowser(
     onImportAudioClick: () -> Unit,
     onRecordAudioClick: () -> Unit,
     onEditItemClick: (ButtonItem) -> Unit,
+    onMoveItemUpClick: (ButtonItem) -> Unit,
+    onMoveItemDownClick: (ButtonItem) -> Unit,
     onDeleteItemClick: (ButtonItem) -> Unit
 ) {
     Column(
@@ -1988,12 +2146,24 @@ private fun ButtonPackBrowser(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(state.shownItems, key = { "${it.packId}:${it.id}" }) { item ->
+                    val itemIndex = state.shownItems.indexOfFirst {
+                        it.packId == item.packId && it.id == item.id
+                    }
+                    val canSortItem = state.query.isBlank() &&
+                        state.selectedPack?.isBuiltIn == false &&
+                        item.categoryId == state.selectedCategory?.id
                     ButtonItemCard(
                         item = item,
                         canDelete = state.selectedPack != null,
+                        canMoveUp = canSortItem && itemIndex > 0,
+                        canMoveDown = canSortItem &&
+                            itemIndex >= 0 &&
+                            itemIndex < state.shownItems.lastIndex,
                         isPlaying = state.playing?.packId == item.packId && state.playing.id == item.id,
                         onClick = { onItemClick(item) },
                         onEditClick = { onEditItemClick(item) },
+                        onMoveUpClick = { onMoveItemUpClick(item) },
+                        onMoveDownClick = { onMoveItemDownClick(item) },
                         onDeleteClick = { onDeleteItemClick(item) }
                     )
                 }
@@ -2696,9 +2866,13 @@ private fun SearchBox(
 private fun ButtonItemCard(
     item: ButtonItem,
     canDelete: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
     isPlaying: Boolean,
     onClick: () -> Unit,
     onEditClick: () -> Unit,
+    onMoveUpClick: () -> Unit,
+    onMoveDownClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     Card(
@@ -2744,6 +2918,26 @@ private fun ButtonItemCard(
                 )
             }
             if (canDelete) {
+                IconButton(
+                    onClick = onMoveUpClick,
+                    enabled = canMoveUp
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowUp,
+                        contentDescription = "Move button up",
+                        tint = if (canMoveUp) Color(0xFF625B71) else Color(0xFFC8C1D0)
+                    )
+                }
+                IconButton(
+                    onClick = onMoveDownClick,
+                    enabled = canMoveDown
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowDown,
+                        contentDescription = "Move button down",
+                        tint = if (canMoveDown) Color(0xFF625B71) else Color(0xFFC8C1D0)
+                    )
+                }
                 IconButton(onClick = onEditClick) {
                     Icon(
                         imageVector = Icons.Filled.Edit,

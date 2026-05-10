@@ -25,6 +25,8 @@ buttons can all live in the same pack system.
   saving, and export the recorded `.m4a` media inside `.buttonpack.zip` packs.
 - Rename packs/categories/buttons, move buttons between categories, and delete
   categories with confirmation.
+- Move user-owned categories and buttons up/down; ordering is stored locally and
+  survives restart.
 - Delete packs and buttons with confirmation, including bundled Aqua/Mea
   content as local hidden state.
 - Add categories and imported audio to any selected pack, including bundled
@@ -79,7 +81,7 @@ Install on a connected emulator or device:
 
 Development is tracked in [ROADMAP.md](./ROADMAP.md). The next major phases are:
 
-- Category sorting and richer pack import conflict previews.
+- Richer pack import conflict previews and cleaner advanced-actions UI.
 - Video buttons.
 - Foreground voice-recognition triggers.
 
@@ -123,9 +125,10 @@ app-private storage, can be deleted, and can be exported again as part of a
 `.buttonpack.zip`. Pack rename, category rename/delete, `Delete Pack`,
 `Import`, and `Export` live in the top app bar pack actions menu; destructive
 actions ask for confirmation. Buttons can be renamed, moved to another category,
-or deleted from the list. Deleting built-in content records a local hidden-state
-preference so the app stops reseeding it on startup; it does not rewrite APK
-assets.
+reordered inside a category, or deleted from the list. User-owned categories can
+also be moved up/down from the pack actions menu. Deleting built-in content
+records a local hidden-state preference so the app stops reseeding it on startup;
+it does not rewrite APK assets.
 
 ## Source Credits
 
