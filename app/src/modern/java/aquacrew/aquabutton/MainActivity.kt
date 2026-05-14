@@ -2,6 +2,7 @@ package aquacrew.aquabutton
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.AssetManager
 import android.media.AudioAttributes
@@ -10,6 +11,9 @@ import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -1206,6 +1210,23 @@ data class AquaUiState(
                 }
             }
         }
+
+    fun findVoiceTriggerMatch(spokenText: String): ButtonItem? {
+        val normalizedSpoken = spokenText.normalizedTriggerText()
+        if (normalizedSpoken.isBlank()) return null
+        return packs
+            .asSequence()
+            .flatMap { it.categories.asSequence() }
+            .flatMap { it.items.asSequence() }
+            .firstOrNull { item ->
+                item.triggerPhrases.any { phrase ->
+                    val normalizedPhrase = phrase.normalizedTriggerText()
+                    normalizedPhrase.isNotBlank() &&
+                        (normalizedSpoken.contains(normalizedPhrase) ||
+                            normalizedPhrase.contains(normalizedSpoken))
+                }
+            }
+    }
 }
 
 class AquaViewModel : ViewModel() {
@@ -1883,6 +1904,15 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
     var pendingEditItem by remember { mutableStateOf<ButtonItem?>(null) }
     var pendingDeleteItem by remember { mutableStateOf<ButtonItem?>(null) }
     var fullscreenVideoItem by remember { mutableStateOf<ButtonItem?>(null) }
+    var isVoiceListening by remember { mutableStateOf(false) }
+    var voiceStatus by remember { mutableStateOf<String?>(null) }
+    val speechRecognizer = remember {
+        if (SpeechRecognizer.isRecognitionAvailable(activity)) {
+            SpeechRecognizer.createSpeechRecognizer(activity)
+        } else {
+            null
+        }
+    }
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -1912,11 +1942,88 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
             viewModel.showNotice("Microphone permission is required to record audio")
         }
     }
+    val voicePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            speechRecognizer?.startButtonBoxListening(activity)
+        } else {
+            viewModel.showNotice("Microphone permission is required for voice triggers")
+        }
+    }
     LaunchedEffect(Unit) {
         viewModel.load(activity)
     }
     DisposableEffect(Unit) {
         onDispose { viewModel.stop() }
+    }
+    DisposableEffect(speechRecognizer) {
+        val recognizer = speechRecognizer ?: return@DisposableEffect onDispose { }
+        recognizer.setRecognitionListener(
+            object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    isVoiceListening = true
+                    voiceStatus = "Listening..."
+                }
+
+                override fun onBeginningOfSpeech() {
+                    voiceStatus = "Hearing voice..."
+                }
+
+                override fun onRmsChanged(rmsdB: Float) = Unit
+
+                override fun onBufferReceived(buffer: ByteArray?) = Unit
+
+                override fun onEndOfSpeech() {
+                    isVoiceListening = false
+                    voiceStatus = "Recognizing..."
+                }
+
+                override fun onError(error: Int) {
+                    isVoiceListening = false
+                    voiceStatus = null
+                    viewModel.showNotice("Voice trigger failed: ${error.voiceErrorMessage()}")
+                }
+
+                override fun onResults(results: Bundle?) {
+                    isVoiceListening = false
+                    voiceStatus = null
+                    val spoken = results
+                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        ?.firstOrNull()
+                        .orEmpty()
+                    val match = viewModel.state.findVoiceTriggerMatch(spoken)
+                    when {
+                        spoken.isBlank() -> viewModel.showNotice("No voice result")
+                        match == null -> viewModel.showNotice("Heard: $spoken")
+                        match.isVideo -> {
+                            viewModel.stop()
+                            fullscreenVideoItem = match
+                            viewModel.showNotice("Voice matched ${match.title}")
+                        }
+                        else -> {
+                            viewModel.showNotice("Voice matched ${match.title}")
+                            viewModel.play(match)
+                        }
+                    }
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) {
+                    val partial = partialResults
+                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        ?.firstOrNull()
+                    if (!partial.isNullOrBlank()) {
+                        voiceStatus = "Hearing: $partial"
+                    }
+                }
+
+                override fun onEvent(eventType: Int, params: Bundle?) = Unit
+            }
+        )
+        onDispose {
+            recognizer.cancel()
+            recognizer.destroy()
+        }
     }
     MaterialTheme(
         colorScheme = MaterialTheme.colorScheme.copy(
@@ -1942,6 +2049,27 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 },
                 onRandomClick = viewModel::playRandom,
                 onStopClick = viewModel::stop,
+                onVoiceClick = {
+                    if (speechRecognizer == null) {
+                        viewModel.showNotice("Voice recognition is not available on this device")
+                    } else if (isVoiceListening) {
+                        speechRecognizer.cancel()
+                        isVoiceListening = false
+                        voiceStatus = null
+                        viewModel.showNotice("Voice trigger stopped")
+                    } else if (
+                        ContextCompat.checkSelfPermission(
+                            activity,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        speechRecognizer.startButtonBoxListening(activity)
+                    } else {
+                        voicePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                },
+                isVoiceListening = isVoiceListening,
+                voiceStatus = voiceStatus,
                 onNewPackClick = { showNewPackDialog = true },
                 onNewCategoryClick = { showNewCategoryDialog = true },
                 onImportAudioClick = { audioLauncher.launch(arrayOf("audio/*")) },
@@ -2176,6 +2304,9 @@ private fun AquaHome(
     onItemClick: (ButtonItem) -> Unit,
     onRandomClick: () -> Unit,
     onStopClick: () -> Unit,
+    onVoiceClick: () -> Unit,
+    isVoiceListening: Boolean,
+    voiceStatus: String?,
     onNewPackClick: () -> Unit,
     onNewCategoryClick: () -> Unit,
     onImportAudioClick: () -> Unit,
@@ -2329,16 +2460,31 @@ private fun AquaHome(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = if (state.playing == null) onRandomClick else onStopClick,
-                containerColor = if (state.playing == null) Color(0xFF00D6C9) else Color(0xFFFF5F6D),
-                contentColor = Color.White,
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.navigationBarsPadding()
             ) {
-                Icon(
-                    imageVector = if (state.playing == null) Icons.Filled.Casino else Icons.Filled.Stop,
-                    contentDescription = if (state.playing == null) "Shuffle" else "Stop"
-                )
+                FloatingActionButton(
+                    onClick = onVoiceClick,
+                    containerColor = if (isVoiceListening) Color(0xFFFF5F6D) else Color(0xFF6C2BFF),
+                    contentColor = Color.White
+                ) {
+                    Icon(
+                        imageVector = if (isVoiceListening) Icons.Filled.Stop else Icons.Filled.Mic,
+                        contentDescription = if (isVoiceListening) "Stop voice trigger" else "Voice trigger"
+                    )
+                }
+                FloatingActionButton(
+                    onClick = if (state.playing == null) onRandomClick else onStopClick,
+                    containerColor = if (state.playing == null) Color(0xFF00D6C9) else Color(0xFFFF5F6D),
+                    contentColor = Color.White
+                ) {
+                    Icon(
+                        imageVector = if (state.playing == null) Icons.Filled.Casino else Icons.Filled.Stop,
+                        contentDescription = if (state.playing == null) "Shuffle" else "Stop"
+                    )
+                }
             }
         }
     ) { padding ->
@@ -2357,6 +2503,7 @@ private fun AquaHome(
                 state.error != null -> ErrorView(state.error, onRetryClick)
                 else -> ButtonPackBrowser(
                     state = state,
+                    voiceStatus = voiceStatus,
                     onPackClick = onPackClick,
                     onCategoryClick = onCategoryClick,
                     onQueryChange = onQueryChange,
@@ -2389,6 +2536,7 @@ private fun DropdownMenuHeader(text: String) {
 @Composable
 private fun ButtonPackBrowser(
     state: AquaUiState,
+    voiceStatus: String?,
     onPackClick: (ButtonPack) -> Unit,
     onCategoryClick: (ButtonCategory) -> Unit,
     onQueryChange: (String) -> Unit,
@@ -2413,6 +2561,7 @@ private fun ButtonPackBrowser(
             onNewPackClick = onNewPackClick
         )
         StatusNotice(state.notice)
+        StatusNotice(voiceStatus)
         SearchBox(
             query = state.query,
             onQueryChange = onQueryChange,
@@ -3727,6 +3876,39 @@ private fun ButtonItem.videoPlaybackUri(): Uri {
     localPath?.let { return Uri.fromFile(File(it)) }
     assetPath?.let { return Uri.parse("asset:///$it") }
     error("Video has no playable source")
+}
+
+private fun SpeechRecognizer.startButtonBoxListening(context: Context) {
+    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+        )
+        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+        putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
+    }
+    startListening(intent)
+}
+
+private fun Int.voiceErrorMessage(): String {
+    return when (this) {
+        SpeechRecognizer.ERROR_AUDIO -> "audio error"
+        SpeechRecognizer.ERROR_CLIENT -> "client error"
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "missing microphone permission"
+        SpeechRecognizer.ERROR_NETWORK -> "network error"
+        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "network timeout"
+        SpeechRecognizer.ERROR_NO_MATCH -> "no match"
+        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "recognizer busy"
+        SpeechRecognizer.ERROR_SERVER -> "server error"
+        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "speech timeout"
+        else -> "error $this"
+    }
+}
+
+private fun String.normalizedTriggerText(): String {
+    return lowercase(Locale.getDefault())
+        .replace(Regex("[\\s　_\\-.,!?，。！？]+"), "")
 }
 
 private fun safeZipFile(root: File, entry: ZipEntry): File {

@@ -248,6 +248,15 @@ First version should be foreground-only:
 - Trigger audio or video playback on match.
 - Show clear UI for listening, matched, and no-match states.
 
+Status: foreground MVP completed in v2.20.
+
+- Added a microphone floating action button for start/stop listening.
+- Reuses `RECORD_AUDIO` permission without adding a background service.
+- Matches normalized recognition results against saved trigger phrases.
+- Audio matches play through the existing `MediaPlayer` path.
+- Video matches open the existing fullscreen Media3 player.
+- Non-matching results are surfaced as notices so trigger phrases can be tuned.
+
 Later version can investigate background listening, but that has Android
 permission, battery, privacy, and vendor-kill restrictions.
 
@@ -268,6 +277,5 @@ Done when:
 
 ## Current Recommended Next Step
 
-Move into the remaining Phase 4 polish: richer import conflict handling,
-better validation messages, and a less crowded advanced-actions UI. After that,
-start Phase 5 video buttons on the same pack/media model.
+Move into Phase 6 polish: better match ranking, optional fuzzy matching,
+language selection, and a testable voice-recognition diagnostics screen.

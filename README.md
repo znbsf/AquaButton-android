@@ -28,6 +28,8 @@ buttons can all live in the same pack system.
   fullscreen player with auto-return on completion and a visible close button.
 - Button trigger phrases can be edited on imported, recorded, and existing
   audio/video buttons, and are preserved in exported packs.
+- Foreground voice trigger MVP: tap the microphone FAB, speak a saved trigger
+  phrase, and ButtonBox plays the matching audio or opens the matching video.
 - Video playback can be switched between fill-screen crop and complete-frame
   fit from the top-right pack actions menu.
 - Rename packs/categories/buttons, move buttons between categories, and delete
@@ -137,6 +139,15 @@ returns to the button list automatically when the clip ends, and the close
 button can exit early. The pack actions menu includes `Fill Screen`: on crops
 to fill the display, off keeps the complete video frame visible with letterbox
 space when needed.
+
+## Voice Triggers
+
+Voice triggers are foreground-only in this MVP. Add one or more trigger phrases
+when creating or editing a button, then tap the microphone floating button and
+speak the phrase. ButtonBox uses Android's system `SpeechRecognizer`; when the
+recognized text contains a saved trigger phrase, audio buttons play immediately
+and video buttons open in the fullscreen player. If nothing matches, the app
+shows the recognized text so the phrase can be adjusted.
 
 Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
 add categories and imported audio to them. Imported audio files are copied into
