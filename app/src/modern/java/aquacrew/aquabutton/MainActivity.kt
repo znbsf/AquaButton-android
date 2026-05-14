@@ -90,10 +90,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -3160,6 +3164,19 @@ private fun FullscreenVideoPlayer(
         }
     }
 
+    DisposableEffect(activity) {
+        val window = activity.window
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+        }
+    }
+
     DisposableEffect(player, item.title) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -3188,6 +3205,7 @@ private fun FullscreenVideoPlayer(
             factory = { context ->
                 PlayerView(context).apply {
                     useController = false
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     this.player = player
                     setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                 }
