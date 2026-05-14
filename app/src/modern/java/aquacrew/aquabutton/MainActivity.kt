@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -58,6 +59,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -133,11 +135,12 @@ private const val AQUA_VOICE_BASE_URL =
     "https://raw.githubusercontent.com/zyzsdy/aqua-button/master/public/voices/"
 private const val MEA_VOICE_BASE_URL =
     "https://raw.githubusercontent.com/zyzsdy/meamea-button/master/public/voices/"
-private const val PACK_SCHEMA_VERSION = 1
+private const val PACK_SCHEMA_VERSION = 2
 private const val PREFS_NAME = "buttonbox_prefs"
 private const val PREF_HIDDEN_BUILT_IN_PACKS = "hidden_built_in_packs"
 private const val PREF_HIDDEN_BUILT_IN_CATEGORIES = "hidden_built_in_categories"
 private const val PREF_HIDDEN_BUILT_IN_ITEMS = "hidden_built_in_items"
+private const val PREF_VIDEO_FILL_SCREEN = "video_fill_screen"
 
 data class ButtonPack(
     val id: String,
@@ -166,7 +169,8 @@ data class ButtonItem(
     val mediaType: String,
     val assetPath: String?,
     val remoteUrl: String?,
-    val localPath: String?
+    val localPath: String?,
+    val triggerPhrases: List<String> = emptyList()
 )
 
 private val ButtonItem.isVideo: Boolean
@@ -259,6 +263,9 @@ interface ButtonPackDao {
     @Query("SELECT * FROM button_items ORDER BY sortOrder ASC, title ASC")
     suspend fun getItems(): List<ButtonItemEntity>
 
+    @Query("SELECT * FROM trigger_phrases ORDER BY phrase ASC")
+    suspend fun getTriggerPhrases(): List<TriggerPhraseEntity>
+
     @Query("SELECT * FROM packs WHERE id = :packId LIMIT 1")
     suspend fun getPack(packId: String): PackEntity?
 
@@ -276,6 +283,9 @@ interface ButtonPackDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItems(items: List<ButtonItemEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTriggerPhrases(phrases: List<TriggerPhraseEntity>)
 
     @Query("DELETE FROM trigger_phrases WHERE itemId IN (SELECT id FROM button_items WHERE packId IN (SELECT id FROM packs WHERE isBuiltIn = 1) AND assetPath IS NOT NULL)")
     suspend fun deleteBuiltInTriggerPhrases()
@@ -434,22 +444,32 @@ class ButtonPackRepository(
             var itemCount = 0
             var audioCount = 0
             var videoCount = 0
+            val seenCategoryIds = mutableSetOf<String>()
+            val seenItemIds = mutableSetOf<String>()
             categories.forEach { categoryElement ->
                 val category = categoryElement.asJsonObject
                 val categoryId = category.getRequiredString("id").safeId()
                 require(categoryId.isNotBlank()) { "Category id is empty" }
+                require(seenCategoryIds.add(categoryId)) { "Duplicate category id: $categoryId" }
                 val items = category.getAsJsonArray("items") ?: JsonArray()
                 items.forEach { itemElement ->
                     val item = itemElement.asJsonObject
                     val itemId = item.getRequiredString("id").safeId()
                     require(itemId.isNotBlank()) { "Button id is empty" }
-                    val mediaType = item.getOptionalString("mediaType").ifBlank { "audio" }
+                    require(seenItemIds.add(itemId)) { "Duplicate button id: $itemId" }
+                    val mediaType = item.getOptionalString("mediaType")
+                        .ifBlank { "audio" }
+                        .lowercase(Locale.US)
                     require(mediaType == "audio" || mediaType == "video") {
                         "Unsupported media type: $mediaType"
                     }
                     val mediaPath = item.getRequiredString("mediaPath")
+                    require(mediaPath.startsWith("assets/audio/") || mediaPath.startsWith("assets/video/")) {
+                        "Media file must live under assets/audio or assets/video: $mediaPath"
+                    }
                     val mediaFile = safeRelativeFile(extractRoot, mediaPath)
                     require(mediaFile.isFile) { "Missing media file: $mediaPath" }
+                    item.getTriggerPhrases()
                     itemCount += 1
                     if (mediaType == "video") videoCount += 1 else audioCount += 1
                 }
@@ -543,9 +563,13 @@ class ButtonPackRepository(
 
         val categoryEntities = mutableListOf<CategoryEntity>()
         val itemEntities = mutableListOf<ButtonItemEntity>()
+        val triggerEntities = mutableListOf<TriggerPhraseEntity>()
+        val seenCategoryIds = mutableSetOf<String>()
+        val seenItemIds = mutableSetOf<String>()
         categories.forEachIndexed { categoryIndex, categoryElement ->
             val category = categoryElement.asJsonObject
             val categoryId = category.getRequiredString("id").safeId()
+            require(seenCategoryIds.add(categoryId)) { "Duplicate category id: $categoryId" }
             val categoryDbId = "$packId:$categoryId"
             categoryEntities += CategoryEntity(
                 id = categoryDbId,
@@ -558,11 +582,17 @@ class ButtonPackRepository(
             items.forEachIndexed { itemIndex, itemElement ->
                 val item = itemElement.asJsonObject
                 val itemId = item.getRequiredString("id").safeId()
-                val mediaType = item.getOptionalString("mediaType").ifBlank { "audio" }
+                require(seenItemIds.add(itemId)) { "Duplicate button id: $itemId" }
+                val mediaType = item.getOptionalString("mediaType")
+                    .ifBlank { "audio" }
+                    .lowercase(Locale.US)
                 require(mediaType == "audio" || mediaType == "video") {
                     "Unsupported media type: $mediaType"
                 }
                 val mediaPath = item.getRequiredString("mediaPath")
+                require(mediaPath.startsWith("assets/audio/") || mediaPath.startsWith("assets/video/")) {
+                    "Media file must live under assets/audio or assets/video: $mediaPath"
+                }
                 val mediaFile = safeRelativeFile(extractRoot, mediaPath)
                 require(mediaFile.isFile) { "Missing media file: $mediaPath" }
                 val importedMedia = safeRelativeFile(packDir, mediaPath)
@@ -580,6 +610,12 @@ class ButtonPackRepository(
                     localPath = importedMedia.absolutePath,
                     sortOrder = itemIndex
                 )
+                triggerEntities += item.getTriggerPhrases().map { phrase ->
+                    TriggerPhraseEntity(
+                        itemId = "$packId:$itemId",
+                        phrase = phrase
+                    )
+                }
             }
         }
         require(itemEntities.isNotEmpty()) { "Pack has no buttons" }
@@ -606,6 +642,7 @@ class ButtonPackRepository(
             )
             dao.insertCategories(categoryEntities)
             dao.insertItems(itemEntities)
+            dao.insertTriggerPhrases(triggerEntities)
         }
         return packId
     }
@@ -708,24 +745,38 @@ class ButtonPackRepository(
         return categoryId
     }
 
-    suspend fun importAudioButton(packId: String, categoryId: String, uri: Uri, title: String): String {
+    suspend fun importAudioButton(
+        packId: String,
+        categoryId: String,
+        uri: Uri,
+        title: String,
+        triggerPhrases: List<String>
+    ): String {
         return importLocalMediaButton(
             packId = packId,
             categoryId = categoryId,
             uri = uri,
             title = title,
+            triggerPhrases = triggerPhrases,
             mediaType = "audio",
             defaultExtension = "mp3",
             defaultTitle = "Audio Button"
         )
     }
 
-    suspend fun importVideoButton(packId: String, categoryId: String, uri: Uri, title: String): String {
+    suspend fun importVideoButton(
+        packId: String,
+        categoryId: String,
+        uri: Uri,
+        title: String,
+        triggerPhrases: List<String>
+    ): String {
         return importLocalMediaButton(
             packId = packId,
             categoryId = categoryId,
             uri = uri,
             title = title,
+            triggerPhrases = triggerPhrases,
             mediaType = "video",
             defaultExtension = "mp4",
             defaultTitle = "Video Button"
@@ -737,6 +788,7 @@ class ButtonPackRepository(
         categoryId: String,
         uri: Uri,
         title: String,
+        triggerPhrases: List<String>,
         mediaType: String,
         defaultExtension: String,
         defaultTitle: String
@@ -780,6 +832,11 @@ class ButtonPackRepository(
                     )
                 )
             )
+            dao.insertTriggerPhrases(
+                triggerPhrases.cleanedTriggerPhrases().map { phrase ->
+                    TriggerPhraseEntity(itemId = "$packId:$itemId", phrase = phrase)
+                }
+            )
         }
         return "$packId:$itemId"
     }
@@ -788,7 +845,8 @@ class ButtonPackRepository(
         packId: String,
         categoryId: String,
         sourceFile: File,
-        title: String
+        title: String,
+        triggerPhrases: List<String>
     ): String {
         val dao = database.buttonPackDao()
         val pack = dao.getPack(packId)
@@ -821,6 +879,11 @@ class ButtonPackRepository(
                         sortOrder = dao.getMaxItemSortOrder(categoryId) + 1
                     )
                 )
+            )
+            dao.insertTriggerPhrases(
+                triggerPhrases.cleanedTriggerPhrases().map { phrase ->
+                    TriggerPhraseEntity(itemId = "$packId:$itemId", phrase = phrase)
+                }
             )
         }
         return "$packId:$itemId"
@@ -890,7 +953,12 @@ class ButtonPackRepository(
         }
     }
 
-    suspend fun updateButton(item: ButtonItem, title: String, categoryId: String) {
+    suspend fun updateButton(
+        item: ButtonItem,
+        title: String,
+        categoryId: String,
+        triggerPhrases: List<String>
+    ) {
         val cleanTitle = title.trim()
         require(cleanTitle.isNotBlank()) { "Button title is required" }
         val dao = database.buttonPackDao()
@@ -905,7 +973,15 @@ class ButtonPackRepository(
         } else {
             dao.getMaxItemSortOrder(categoryId) + 1
         }
-        dao.updateButton(itemDbId, cleanTitle, categoryId, sortOrder)
+        database.withTransaction {
+            dao.updateButton(itemDbId, cleanTitle, categoryId, sortOrder)
+            dao.deleteTriggerPhrasesForItem(itemDbId)
+            dao.insertTriggerPhrases(
+                triggerPhrases.cleanedTriggerPhrases().map { phrase ->
+                    TriggerPhraseEntity(itemId = itemDbId, phrase = phrase)
+                }
+            )
+        }
     }
 
     suspend fun moveButton(item: ButtonItem, direction: SortDirection) {
@@ -1062,6 +1138,7 @@ class ButtonPackRepository(
         val packs = dao.getPacks()
         val categoriesByPack = dao.getCategories().groupBy { it.packId }
         val itemsByCategory = dao.getItems().groupBy { it.categoryId }
+        val triggersByItem = dao.getTriggerPhrases().groupBy { it.itemId }
         return packs.map { pack ->
             ButtonPack(
                 id = pack.id,
@@ -1074,7 +1151,11 @@ class ButtonPackRepository(
                     ButtonCategory(
                         id = category.id,
                         title = category.title,
-                        items = itemsByCategory[category.id].orEmpty().map { it.toButtonItem() }
+                        items = itemsByCategory[category.id].orEmpty().map { entity ->
+                            entity.toButtonItem(
+                                triggersByItem[entity.id].orEmpty().map { it.phrase }
+                            )
+                        }
                     )
                 }
             )
@@ -1096,6 +1177,7 @@ data class AquaUiState(
     val selectedCategoryId: String? = null,
     val query: String = "",
     val playing: ButtonItem? = null,
+    val videoFillScreen: Boolean = true,
     val pendingImportPreview: ImportPackPreview? = null
 ) {
     val selectedPack: ButtonPack?
@@ -1119,7 +1201,8 @@ data class AquaUiState(
             } else {
                 source.filter {
                     it.title.contains(keyword, ignoreCase = true) ||
-                        it.id.contains(keyword, ignoreCase = true)
+                        it.id.contains(keyword, ignoreCase = true) ||
+                        it.triggerPhrases.any { phrase -> phrase.contains(keyword, ignoreCase = true) }
                 }
             }
         }
@@ -1136,6 +1219,8 @@ class AquaViewModel : ViewModel() {
     fun load(activity: ComponentActivity) {
         assetManager = activity.assets
         repository = ButtonPackRepository(activity.applicationContext)
+        val videoFillScreen = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(PREF_VIDEO_FILL_SCREEN, true)
         state = state.copy(loading = true, error = null, notice = null)
         viewModelScope.launch {
             runCatching {
@@ -1148,6 +1233,7 @@ class AquaViewModel : ViewModel() {
                     packs = packs,
                     selectedPackId = packs.firstOrNull()?.id,
                     selectedCategoryId = packs.firstOrNull()?.categories?.firstOrNull()?.id,
+                    videoFillScreen = videoFillScreen,
                     error = null
                 )
             }.onFailure { error ->
@@ -1329,12 +1415,24 @@ class AquaViewModel : ViewModel() {
         }
     }
 
-    fun importAudio(activity: ComponentActivity, uri: Uri, title: String, category: ButtonCategory) {
-        importMedia(activity, uri, title, category, mediaType = "audio")
+    fun importAudio(
+        activity: ComponentActivity,
+        uri: Uri,
+        title: String,
+        category: ButtonCategory,
+        triggerPhrases: List<String>
+    ) {
+        importMedia(activity, uri, title, category, triggerPhrases, mediaType = "audio")
     }
 
-    fun importVideo(activity: ComponentActivity, uri: Uri, title: String, category: ButtonCategory) {
-        importMedia(activity, uri, title, category, mediaType = "video")
+    fun importVideo(
+        activity: ComponentActivity,
+        uri: Uri,
+        title: String,
+        category: ButtonCategory,
+        triggerPhrases: List<String>
+    ) {
+        importMedia(activity, uri, title, category, triggerPhrases, mediaType = "video")
     }
 
     private fun importMedia(
@@ -1342,6 +1440,7 @@ class AquaViewModel : ViewModel() {
         uri: Uri,
         title: String,
         category: ButtonCategory,
+        triggerPhrases: List<String>,
         mediaType: String
     ) {
         val pack = state.selectedPack ?: return
@@ -1353,9 +1452,9 @@ class AquaViewModel : ViewModel() {
                         repository = it
                     }
                     val itemDbId = if (mediaType == "video") {
-                        repo.importVideoButton(pack.id, category.id, uri, title)
+                        repo.importVideoButton(pack.id, category.id, uri, title, triggerPhrases)
                     } else {
-                        repo.importAudioButton(pack.id, category.id, uri, title)
+                        repo.importAudioButton(pack.id, category.id, uri, title, triggerPhrases)
                     }
                     itemDbId to repo.loadPacks()
                 }
@@ -1385,7 +1484,8 @@ class AquaViewModel : ViewModel() {
         activity: ComponentActivity,
         sourceFile: File,
         title: String,
-        category: ButtonCategory
+        category: ButtonCategory,
+        triggerPhrases: List<String>
     ) {
         val pack = state.selectedPack ?: return
         state = state.copy(error = null, notice = "Saving recording")
@@ -1395,7 +1495,13 @@ class AquaViewModel : ViewModel() {
                     val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
                         repository = it
                     }
-                    val itemDbId = repo.importRecordedAudioButton(pack.id, category.id, sourceFile, title)
+                    val itemDbId = repo.importRecordedAudioButton(
+                        pack.id,
+                        category.id,
+                        sourceFile,
+                        title,
+                        triggerPhrases
+                    )
                     sourceFile.delete()
                     itemDbId to repo.loadPacks()
                 }
@@ -1423,6 +1529,18 @@ class AquaViewModel : ViewModel() {
 
     fun showNotice(message: String) {
         state = state.copy(error = null, notice = message)
+    }
+
+    fun setVideoFillScreen(activity: ComponentActivity, enabled: Boolean) {
+        activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(PREF_VIDEO_FILL_SCREEN, enabled)
+            .apply()
+        state = state.copy(
+            videoFillScreen = enabled,
+            error = null,
+            notice = if (enabled) "Videos fill the screen" else "Videos show complete frame"
+        )
     }
 
     fun renameSelectedPack(activity: ComponentActivity, name: String) {
@@ -1542,7 +1660,13 @@ class AquaViewModel : ViewModel() {
         }
     }
 
-    fun updateButton(activity: ComponentActivity, item: ButtonItem, title: String, category: ButtonCategory) {
+    fun updateButton(
+        activity: ComponentActivity,
+        item: ButtonItem,
+        title: String,
+        category: ButtonCategory,
+        triggerPhrases: List<String>
+    ) {
         state = state.copy(error = null, notice = "Updating ${item.title}")
         viewModelScope.launch {
             runCatching {
@@ -1550,7 +1674,7 @@ class AquaViewModel : ViewModel() {
                     val repo = repository ?: ButtonPackRepository(activity.applicationContext).also {
                         repository = it
                     }
-                    repo.updateButton(item, title, category.id)
+                    repo.updateButton(item, title, category.id, triggerPhrases)
                     repo.loadPacks()
                 }
             }.onSuccess { packs ->
@@ -1840,6 +1964,7 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onMoveCategoryDownClick = { viewModel.moveSelectedCategory(activity, SortDirection.Down) },
                 onDeleteCategoryClick = { showDeleteCategoryDialog = true },
                 onDeletePackClick = { showDeletePackDialog = true },
+                onVideoFillScreenChange = { viewModel.setVideoFillScreen(activity, it) },
                 onEditItemClick = { pendingEditItem = it },
                 onMoveItemUpClick = { viewModel.moveButton(activity, it, SortDirection.Up) },
                 onMoveItemDownClick = { viewModel.moveButton(activity, it, SortDirection.Down) },
@@ -1963,16 +2088,17 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 val selectedPack = viewModel.state.selectedPack
                 val categories = selectedPack?.categories.orEmpty()
                 val defaultTitle = activity.displayName(uri).substringBeforeLast('.').ifBlank { "Audio Button" }
-                AudioButtonDialog(
+                MediaButtonDialog(
                     title = "Add Audio",
                     initialTitle = defaultTitle,
+                    initialTriggerPhrases = "",
                     categories = categories,
                     initialCategory = viewModel.state.selectedCategory,
                     confirmText = "Add",
                     onDismiss = { pendingAudioUri = null },
-                    onConfirm = { buttonTitle, category ->
+                    onConfirm = { buttonTitle, category, triggerPhrases ->
                         pendingAudioUri = null
-                        viewModel.importAudio(activity, uri, buttonTitle, category)
+                        viewModel.importAudio(activity, uri, buttonTitle, category, triggerPhrases)
                     }
                 )
             }
@@ -1980,16 +2106,17 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 val selectedPack = viewModel.state.selectedPack
                 val categories = selectedPack?.categories.orEmpty()
                 val defaultTitle = activity.displayName(uri).substringBeforeLast('.').ifBlank { "Video Button" }
-                AudioButtonDialog(
+                MediaButtonDialog(
                     title = "Add Video",
                     initialTitle = defaultTitle,
+                    initialTriggerPhrases = "",
                     categories = categories,
                     initialCategory = viewModel.state.selectedCategory,
                     confirmText = "Add",
                     onDismiss = { pendingVideoUri = null },
-                    onConfirm = { buttonTitle, category ->
+                    onConfirm = { buttonTitle, category, triggerPhrases ->
                         pendingVideoUri = null
-                        viewModel.importVideo(activity, uri, buttonTitle, category)
+                        viewModel.importVideo(activity, uri, buttonTitle, category, triggerPhrases)
                     }
                 )
             }
@@ -2001,24 +2128,25 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                     categories = categories,
                     initialCategory = viewModel.state.selectedCategory,
                     onDismiss = { showRecordAudioDialog = false },
-                    onSave = { buttonTitle, category, file ->
+                    onSave = { buttonTitle, category, triggerPhrases, file ->
                         showRecordAudioDialog = false
-                        viewModel.importRecordedAudio(activity, file, buttonTitle, category)
+                        viewModel.importRecordedAudio(activity, file, buttonTitle, category, triggerPhrases)
                     }
                 )
             }
             pendingEditItem?.let { item ->
                 val pack = viewModel.state.packs.firstOrNull { it.id == item.packId }
-                AudioButtonDialog(
+                MediaButtonDialog(
                     title = "Edit Button",
                     initialTitle = item.title,
+                    initialTriggerPhrases = item.triggerPhrases.joinToString("\n"),
                     categories = pack?.categories.orEmpty(),
                     initialCategory = pack?.categories?.firstOrNull { it.id == item.categoryId },
                     confirmText = "Save",
                     onDismiss = { pendingEditItem = null },
-                    onConfirm = { buttonTitle, category ->
+                    onConfirm = { buttonTitle, category, triggerPhrases ->
                         pendingEditItem = null
-                        viewModel.updateButton(activity, item, buttonTitle, category)
+                        viewModel.updateButton(activity, item, buttonTitle, category, triggerPhrases)
                     }
                 )
             }
@@ -2026,6 +2154,7 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 FullscreenVideoPlayer(
                     activity = activity,
                     item = item,
+                    fillScreen = viewModel.state.videoFillScreen,
                     onClose = { fullscreenVideoItem = null },
                     onError = { message ->
                         fullscreenVideoItem = null
@@ -2058,6 +2187,7 @@ private fun AquaHome(
     onMoveCategoryDownClick: () -> Unit,
     onDeleteCategoryClick: () -> Unit,
     onDeletePackClick: () -> Unit,
+    onVideoFillScreenChange: (Boolean) -> Unit,
     onEditItemClick: (ButtonItem) -> Unit,
     onMoveItemUpClick: (ButtonItem) -> Unit,
     onMoveItemDownClick: (ButtonItem) -> Unit,
@@ -2117,6 +2247,20 @@ private fun AquaHome(
                             onClick = {
                                 showPackMenu = false
                                 onExportClick()
+                            }
+                        )
+                        DropdownMenuHeader("Video")
+                        DropdownMenuItem(
+                            text = { Text("Fill Screen") },
+                            leadingIcon = {
+                                Checkbox(
+                                    checked = state.videoFillScreen,
+                                    onCheckedChange = null
+                                )
+                            },
+                            onClick = {
+                                showPackMenu = false
+                                onVideoFillScreenChange(!state.videoFillScreen)
                             }
                         )
                         DropdownMenuHeader("Category")
@@ -2536,16 +2680,18 @@ private fun TextEditDialog(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AudioButtonDialog(
+private fun MediaButtonDialog(
     title: String,
     initialTitle: String,
+    initialTriggerPhrases: String,
     categories: List<ButtonCategory>,
     initialCategory: ButtonCategory?,
     confirmText: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, ButtonCategory) -> Unit
+    onConfirm: (String, ButtonCategory, List<String>) -> Unit
 ) {
     var buttonTitle by remember(initialTitle) { mutableStateOf(initialTitle) }
+    var triggerText by remember(initialTriggerPhrases) { mutableStateOf(initialTriggerPhrases) }
     var selectedCategory by remember(initialCategory, categories) {
         mutableStateOf(initialCategory ?: categories.firstOrNull())
     }
@@ -2559,6 +2705,17 @@ private fun AudioButtonDialog(
                     onValueChange = { buttonTitle = it },
                     label = { Text("Button title") },
                     singleLine = true
+                )
+                OutlinedTextField(
+                    value = triggerText,
+                    onValueChange = { triggerText = it },
+                    label = { Text("Trigger phrases") },
+                    placeholder = { Text("One phrase per line") },
+                    minLines = 2,
+                    maxLines = 4,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 96.dp)
                 )
                 Text(
                     text = "Category",
@@ -2587,7 +2744,7 @@ private fun AudioButtonDialog(
             TextButton(
                 onClick = {
                     val category = selectedCategory ?: return@TextButton
-                    onConfirm(buttonTitle, category)
+                    onConfirm(buttonTitle, category, triggerText.lines().cleanedTriggerPhrases())
                 },
                 enabled = buttonTitle.isNotBlank() && selectedCategory != null
             ) {
@@ -2609,9 +2766,10 @@ private fun RecordAudioDialog(
     categories: List<ButtonCategory>,
     initialCategory: ButtonCategory?,
     onDismiss: () -> Unit,
-    onSave: (String, ButtonCategory, File) -> Unit
+    onSave: (String, ButtonCategory, List<String>, File) -> Unit
 ) {
     var buttonTitle by remember { mutableStateOf("Recorded Button") }
+    var triggerText by remember { mutableStateOf("") }
     var selectedCategory by remember(initialCategory, categories) {
         mutableStateOf(initialCategory ?: categories.firstOrNull())
     }
@@ -2743,6 +2901,15 @@ private fun RecordAudioDialog(
                     label = { Text("Button title") },
                     singleLine = true
                 )
+                OutlinedTextField(
+                    value = triggerText,
+                    onValueChange = { triggerText = it },
+                    label = { Text("Trigger phrases") },
+                    placeholder = { Text("One phrase per line") },
+                    minLines = 2,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Text(
                     text = "Category",
                     style = MaterialTheme.typography.labelLarge,
@@ -2816,7 +2983,7 @@ private fun RecordAudioDialog(
                     val category = selectedCategory ?: return@TextButton
                     stopPreview()
                     keepRecordedFile = true
-                    onSave(buttonTitle, category, file)
+                    onSave(buttonTitle, category, triggerText.lines().cleanedTriggerPhrases(), file)
                 },
                 enabled = recordedFile != null &&
                     !isRecording &&
@@ -3075,9 +3242,19 @@ private fun ButtonItemCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = item.id,
+                    text = buildString {
+                        append(if (item.isVideo) "Video" else "Audio")
+                        append(" - ")
+                        append(item.id)
+                        if (item.triggerPhrases.isNotEmpty()) {
+                            append(" - ")
+                            append(item.triggerPhrases.joinToString(", "))
+                        }
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF7A7286)
+                    color = Color(0xFF7A7286),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             if (canDelete) {
@@ -3150,6 +3327,7 @@ private fun ButtonItemCard(
 private fun FullscreenVideoPlayer(
     activity: ComponentActivity,
     item: ButtonItem,
+    fillScreen: Boolean,
     onClose: () -> Unit,
     onError: (String) -> Unit
 ) {
@@ -3205,13 +3383,22 @@ private fun FullscreenVideoPlayer(
             factory = { context ->
                 PlayerView(context).apply {
                     useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    resizeMode = if (fillScreen) {
+                        AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    } else {
+                        AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    }
                     this.player = player
                     setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                 }
             },
             update = { view ->
                 view.player = player
+                view.resizeMode = if (fillScreen) {
+                    AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                } else {
+                    AspectRatioFrameLayout.RESIZE_MODE_FIT
+                }
             },
             modifier = Modifier.fillMaxSize()
         )
@@ -3363,7 +3550,8 @@ private fun String.parseButtonPack(
                         mediaType = "audio",
                         assetPath = "$assetPrefix/$path",
                         remoteUrl = remoteBaseUrl + path,
-                        localPath = null
+                        localPath = null,
+                        triggerPhrases = emptyList()
                     )
                 }
             )
@@ -3414,7 +3602,7 @@ private fun ButtonItem.toEntity(sortOrder: Int): ButtonItemEntity {
     )
 }
 
-private fun ButtonItemEntity.toButtonItem(): ButtonItem {
+private fun ButtonItemEntity.toButtonItem(triggerPhrases: List<String>): ButtonItem {
     return ButtonItem(
         id = id.substringAfter(':', id),
         packId = packId,
@@ -3423,7 +3611,8 @@ private fun ButtonItemEntity.toButtonItem(): ButtonItem {
         mediaType = mediaType,
         assetPath = assetPath,
         remoteUrl = remoteUrl,
-        localPath = localPath
+        localPath = localPath,
+        triggerPhrases = triggerPhrases
     )
 }
 
@@ -3448,7 +3637,12 @@ private fun ButtonPack.toPackManifest(): JsonObject {
                                 addProperty("title", item.title)
                                 addProperty("mediaType", item.mediaType)
                                 addProperty("mediaPath", item.exportMediaPath(category.id))
-                                add("triggerPhrases", JsonArray())
+                                add(
+                                    "triggerPhrases",
+                                    JsonArray().apply {
+                                        item.triggerPhrases.forEach { add(it) }
+                                    }
+                                )
                             }
                         )
                     }
@@ -3473,6 +3667,20 @@ private fun ButtonItem.exportMediaPath(categoryId: String): String {
     } else {
         "assets/audio/$fileName"
     }
+}
+
+private fun JsonObject.getTriggerPhrases(): List<String> {
+    val phrases = getAsJsonArray("triggerPhrases") ?: return emptyList()
+    return phrases.mapNotNull { element ->
+        element.takeIf { it.isJsonPrimitive }?.asString
+    }.cleanedTriggerPhrases()
+}
+
+private fun Iterable<String>.cleanedTriggerPhrases(): List<String> {
+    return map { it.trim() }
+        .filter { it.isNotBlank() }
+        .distinctBy { it.lowercase(Locale.US) }
+        .take(20)
 }
 
 private fun JsonObject.getRequiredString(name: String): String {

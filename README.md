@@ -15,16 +15,21 @@ buttons can all live in the same pack system.
 - Built-in MeaButton pack with 237 local voice assets.
 - Built-in MyInstants Meme Pack with 37 local meme audio assets.
 - Room-backed local pack database foundation.
-- `.buttonpack.zip` import/export foundation for portable audio packs, with
-  schema-version checks and clearer success/failure messages.
+- `.buttonpack.zip` import/export for portable audio/video packs, with
+  schema-version checks, duplicate-id checks, safe media-path validation, and
+  clearer success/failure messages.
 - Import preview shows pack metadata, category/button counts, media counts, and
   same-id conflicts before writing anything.
 - Same-id imports can either replace the existing pack or import as a copy.
 - Custom pack creation plus guided single-audio import into any selected pack.
 - Record new audio buttons with the microphone, preview/re-record before
   saving, and export the recorded `.m4a` media inside `.buttonpack.zip` packs.
-- Import video buttons into packs and play them in an in-app Media3 fullscreen
-  player with auto-return on completion and a visible close button.
+- Import video buttons into packs and play them in an in-app Media3 immersive
+  fullscreen player with auto-return on completion and a visible close button.
+- Button trigger phrases can be edited on imported, recorded, and existing
+  audio/video buttons, and are preserved in exported packs.
+- Video playback can be switched between fill-screen crop and complete-frame
+  fit from the top-right pack actions menu.
 - Rename packs/categories/buttons, move buttons between categories, and delete
   categories with confirmation.
 - Move user-owned categories and buttons up/down; ordering is stored locally and
@@ -106,8 +111,10 @@ images/logo.png
 ```
 
 The manifest stores pack metadata, categories, button titles, media type, media
-path, and future trigger phrases. Imported media is copied into app-private
-storage so packs stay portable after import.
+path, and trigger phrases. Imported media is copied into app-private storage so
+packs stay portable after import. Schema v2 adds validated audio/video media
+paths and persisted trigger phrases while remaining able to import older v1
+packs.
 
 ## Custom Packs
 
@@ -115,7 +122,8 @@ Use `New Pack` to create a user-owned pack with an initial category. `New Pack`
 uses the same chip style as regular pack tabs. `Add Category` appears at the
 end of the category chips, and `Add Media` appears as the last card in the
 shown button list. Choosing an audio or video file opens an edit dialog so the
-title and target category can be checked before the button is created.
+title, target category, and trigger phrases can be checked before the button is
+created.
 
 The same `Add Audio` card can also record from the microphone. Tap `Record`,
 stop when done, optionally preview or re-record, then save the recording into
@@ -123,10 +131,12 @@ the selected category. Recordings are stored as app-private `.m4a` files and
 are included when the pack is exported.
 
 Video buttons use the same pack/category flow. Tap `Video` in the `Add Media`
-card, choose a video file, confirm the title/category, then tap the new button
-to play it in ButtonBox's fullscreen Media3 player. Playback returns to the
-button list automatically when the clip ends, and the close button can exit
-early.
+card, choose a video file, confirm the title/category/trigger phrases, then tap
+the new button to play it in ButtonBox's fullscreen Media3 player. Playback
+returns to the button list automatically when the clip ends, and the close
+button can exit early. The pack actions menu includes `Fill Screen`: on crops
+to fill the display, off keeps the complete video frame visible with letterbox
+space when needed.
 
 Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
 add categories and imported audio to them. Imported audio files are copied into

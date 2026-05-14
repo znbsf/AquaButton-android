@@ -4,7 +4,7 @@ plugins {
     id 'com.google.devtools.ksp'
 }
 
-def buttonBoxVersionName = '2.18-in-app-video'
+def buttonBoxVersionName = '2.19-video-pack-polish'
 
 android {
     namespace 'aquacrew.aquabutton'
@@ -14,7 +14,7 @@ android {
         applicationId 'com.znbsf.buttonbox'
         minSdk 24
         targetSdk 36
-        versionCode 20
+        versionCode 21
         versionName buttonBoxVersionName
     }
 

@@ -207,15 +207,22 @@ Current implementation:
 
 Goal: support video media in the same button system.
 
-Status: in-app MVP completed.
+Status: in-app flow completed for local imported videos.
 
 - Added `mediaType = video` import through the same pack/category/button model.
 - Imported videos are copied to app-private `assets/video/...` storage.
 - Video buttons play inside ButtonBox through AndroidX Media3 / ExoPlayer.
-- Playback uses a fullscreen `PlayerView` surface with a visible close control.
+- Playback uses an immersive fullscreen `PlayerView` surface with a visible
+  close control.
 - Playback returns to the button list automatically when the clip ends.
-- `.buttonpack.zip` export already includes video files through the same
-  manifest/media path flow.
+- `.buttonpack.zip` import/export includes audio and video files through the
+  same manifest/media path flow.
+- Schema v2 validates safe `assets/audio/...` and `assets/video/...` paths,
+  rejects duplicate category/button ids, and persists trigger phrases.
+- Add/edit dialogs support title, category, and trigger phrase editing for both
+  audio and video buttons.
+- The top-right pack menu can switch video playback between fill-screen crop
+  and complete-frame fit.
 
 Next polish:
 
@@ -225,9 +232,9 @@ Next polish:
 
 Done when:
 
-- A video button can be imported or created, played in-app fullscreen, and
-  return to the button list automatically. Completed for local imported videos
-  in v2.18.
+- A video button can be imported or created, edited, exported, re-imported,
+  played in-app fullscreen, and return to the button list automatically.
+  Completed for local imported videos in v2.19.
 
 ## Phase 6: Voice Recognition Triggers
 
