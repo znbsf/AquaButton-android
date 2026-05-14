@@ -2,7 +2,6 @@ package aquacrew.aquabutton
 
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.AssetManager
 import android.media.AudioAttributes
@@ -89,8 +88,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -2015,10 +2019,10 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 )
             }
             fullscreenVideoItem?.let { item ->
-                ExternalVideoLauncher(
+                FullscreenVideoPlayer(
                     activity = activity,
                     item = item,
-                    onDone = { fullscreenVideoItem = null },
+                    onClose = { fullscreenVideoItem = null },
                     onError = { message ->
                         fullscreenVideoItem = null
                         viewModel.showNotice(message)
@@ -3139,25 +3143,72 @@ private fun ButtonItemCard(
 }
 
 @Composable
-private fun ExternalVideoLauncher(
+private fun FullscreenVideoPlayer(
     activity: ComponentActivity,
     item: ButtonItem,
-    onDone: () -> Unit,
+    onClose: () -> Unit,
     onError: (String) -> Unit
 ) {
-    LaunchedEffect(item.id, item.localPath, item.assetPath, item.remoteUrl) {
-        val result = runCatching {
-            val uri = activity.videoUriFor(item)
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "video/*")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            activity.startActivity(intent)
+    val videoUri = remember(item.id, item.localPath, item.assetPath, item.remoteUrl) {
+        item.videoPlaybackUri()
+    }
+    val player = remember(videoUri) {
+        ExoPlayer.Builder(activity).build().apply {
+            setMediaItem(MediaItem.fromUri(videoUri))
+            playWhenReady = true
+            prepare()
         }
-        if (result.isSuccess) {
-            onDone()
-        } else {
-            onError("Cannot open ${item.title}")
+    }
+
+    DisposableEffect(player, item.title) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    onClose()
+                }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                onError("Cannot play ${item.title}")
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+            player.release()
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        AndroidView(
+            factory = { context ->
+                PlayerView(context).apply {
+                    useController = false
+                    this.player = player
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                }
+            },
+            update = { view ->
+                view.player = player
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        IconButton(
+            onClick = onClose,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(18.dp)
+                .background(Color(0x99000000), CircleShape)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = "Close video",
+                tint = Color.White
+            )
         }
     }
 }
@@ -3445,27 +3496,10 @@ private fun Context.displayName(uri: Uri): String {
         ?: "audio-${System.currentTimeMillis()}.mp3"
 }
 
-private fun ComponentActivity.videoUriFor(item: ButtonItem): Uri {
-    item.remoteUrl?.let { return Uri.parse(it) }
-    item.localPath?.let { path ->
-        return FileProvider.getUriForFile(
-            this,
-            "${BuildConfig.APPLICATION_ID}.fileprovider",
-            File(path)
-        )
-    }
-    item.assetPath?.let { assetPath ->
-        val cacheFile = File(cacheDir, "buttonbox-video-cache/${assetPath.substringAfterLast('/')}")
-        cacheFile.parentFile?.mkdirs()
-        assets.open(assetPath).use { input ->
-            cacheFile.outputStream().use { output -> input.copyTo(output) }
-        }
-        return FileProvider.getUriForFile(
-            this,
-            "${BuildConfig.APPLICATION_ID}.fileprovider",
-            cacheFile
-        )
-    }
+private fun ButtonItem.videoPlaybackUri(): Uri {
+    remoteUrl?.let { return Uri.parse(it) }
+    localPath?.let { return Uri.fromFile(File(it)) }
+    assetPath?.let { return Uri.parse("asset:///$it") }
     error("Video has no playable source")
 }
 

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <files-path
-        name="button_packs"
-        path="button_packs/" />
-    <cache-path
-        name="video_cache"
-        path="buttonbox-video-cache/" />
-</paths>

@@ -207,26 +207,27 @@ Current implementation:
 
 Goal: support video media in the same button system.
 
-Status: MVP started.
+Status: in-app MVP completed.
 
 - Added `mediaType = video` import through the same pack/category/button model.
 - Imported videos are copied to app-private `assets/video/...` storage.
-- Video buttons open through the Android system video player with `FileProvider`
-  read access, so the app does not expose private file paths directly.
+- Video buttons play inside ButtonBox through AndroidX Media3 / ExoPlayer.
+- Playback uses a fullscreen `PlayerView` surface with a visible close control.
+- Playback returns to the button list automatically when the clip ends.
 - `.buttonpack.zip` export already includes video files through the same
   manifest/media path flow.
 
 Next polish:
 
-- Replace the system-player handoff with AndroidX Media3 / ExoPlayer.
-- Add an in-app fullscreen video playback screen.
-- Auto-close when playback completes.
-- Provide a visible close control.
+- Add optional player controls for pause/seek when useful.
+- Add thumbnails or video duration metadata to video buttons.
+- Add size warnings for large imported videos.
 
 Done when:
 
 - A video button can be imported or created, played in-app fullscreen, and
-  return to the button list automatically.
+  return to the button list automatically. Completed for local imported videos
+  in v2.18.
 
 ## Phase 6: Voice Recognition Triggers
 

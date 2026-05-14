@@ -23,8 +23,8 @@ buttons can all live in the same pack system.
 - Custom pack creation plus guided single-audio import into any selected pack.
 - Record new audio buttons with the microphone, preview/re-record before
   saving, and export the recorded `.m4a` media inside `.buttonpack.zip` packs.
-- Import video buttons into packs and open them through the Android system
-  video player using app-private `FileProvider` access.
+- Import video buttons into packs and play them in an in-app Media3 fullscreen
+  player with auto-return on completion and a visible close button.
 - Rename packs/categories/buttons, move buttons between categories, and delete
   categories with confirmation.
 - Move user-owned categories and buttons up/down; ordering is stored locally and
@@ -86,7 +86,6 @@ Install on a connected emulator or device:
 Development is tracked in [ROADMAP.md](./ROADMAP.md). The next major phases are:
 
 - Richer pack import conflict previews and cleaner advanced-actions UI.
-- More polished in-app video playback with automatic return.
 - Foreground voice-recognition triggers.
 
 The current app already stores the built-in packs through a Room database. This
@@ -97,7 +96,7 @@ read-only app assets.
 ## Button Pack Format
 
 ButtonBox uses a zip-based `.buttonpack.zip` format. The current foundation
-supports audio packs and video file paths in the same manifest.
+supports audio and video files in the same manifest.
 
 ```text
 pack.json
@@ -122,6 +121,12 @@ The same `Add Audio` card can also record from the microphone. Tap `Record`,
 stop when done, optionally preview or re-record, then save the recording into
 the selected category. Recordings are stored as app-private `.m4a` files and
 are included when the pack is exported.
+
+Video buttons use the same pack/category flow. Tap `Video` in the `Add Media`
+card, choose a video file, confirm the title/category, then tap the new button
+to play it in ButtonBox's fullscreen Media3 player. Playback returns to the
+button list automatically when the clip ends, and the close button can exit
+early.
 
 Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
 add categories and imported audio to them. Imported audio files are copied into
