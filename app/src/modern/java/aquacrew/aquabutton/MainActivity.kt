@@ -1248,7 +1248,7 @@ data class AquaUiState(
             .flatMap { it.categories.asSequence() }
             .flatMap { it.items.asSequence() }
             .flatMap { item ->
-                item.triggerPhrases.asSequence().flatMap { phrase ->
+                item.voiceTriggerPhrases().asSequence().flatMap { phrase ->
                     val normalizedPhrase = phrase.normalizedTriggerText()
                     if (normalizedPhrase.isBlank()) {
                         emptySequence()
@@ -4058,6 +4058,10 @@ private fun Iterable<String>.cleanedTriggerPhrases(): List<String> {
         .filter { it.isNotBlank() }
         .distinctBy { it.lowercase(Locale.US) }
         .take(20)
+}
+
+private fun ButtonItem.voiceTriggerPhrases(): List<String> {
+    return (triggerPhrases + title).cleanedTriggerPhrases()
 }
 
 private fun JsonObject.getRequiredString(name: String): String {
