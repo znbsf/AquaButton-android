@@ -177,6 +177,13 @@ data class ButtonItem(
     val triggerPhrases: List<String> = emptyList()
 )
 
+data class VoiceTriggerMatch(
+    val item: ButtonItem,
+    val phrase: String,
+    val candidate: String,
+    val score: Int
+)
+
 private val ButtonItem.isVideo: Boolean
     get() = mediaType.trim().equals("video", ignoreCase = true)
 
@@ -1211,21 +1218,40 @@ data class AquaUiState(
             }
         }
 
-    fun findVoiceTriggerMatch(spokenText: String): ButtonItem? {
-        val normalizedSpoken = spokenText.normalizedTriggerText()
-        if (normalizedSpoken.isBlank()) return null
+    fun findVoiceTriggerMatch(spokenTexts: List<String>): VoiceTriggerMatch? {
+        val candidates = spokenTexts
+            .map { spoken -> spoken to spoken.normalizedTriggerText() }
+            .filter { (_, normalized) -> normalized.isNotBlank() }
+        if (candidates.isEmpty()) return null
+
         return packs
             .asSequence()
             .flatMap { it.categories.asSequence() }
             .flatMap { it.items.asSequence() }
-            .firstOrNull { item ->
-                item.triggerPhrases.any { phrase ->
+            .flatMap { item ->
+                item.triggerPhrases.asSequence().flatMap { phrase ->
                     val normalizedPhrase = phrase.normalizedTriggerText()
-                    normalizedPhrase.isNotBlank() &&
-                        (normalizedSpoken.contains(normalizedPhrase) ||
-                            normalizedPhrase.contains(normalizedSpoken))
+                    if (normalizedPhrase.isBlank()) {
+                        emptySequence()
+                    } else {
+                        candidates.asSequence().mapNotNull { (candidate, normalizedCandidate) ->
+                            val score = when {
+                                normalizedCandidate == normalizedPhrase -> 1000 + normalizedPhrase.length
+                                normalizedCandidate.contains(normalizedPhrase) -> 700 + normalizedPhrase.length
+                                normalizedPhrase.contains(normalizedCandidate) &&
+                                    normalizedCandidate.length >= 2 -> 400 + normalizedCandidate.length
+                                else -> 0
+                            }
+                            if (score > 0) {
+                                VoiceTriggerMatch(item, phrase, candidate, score)
+                            } else {
+                                null
+                            }
+                        }
+                    }
                 }
             }
+            .maxByOrNull { it.score }
     }
 }
 
@@ -1906,6 +1932,7 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
     var fullscreenVideoItem by remember { mutableStateOf<ButtonItem?>(null) }
     var isVoiceListening by remember { mutableStateOf(false) }
     var voiceStatus by remember { mutableStateOf<String?>(null) }
+    var lastVoiceCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     val speechRecognizer = remember {
         if (SpeechRecognizer.isRecognitionAvailable(activity)) {
             SpeechRecognizer.createSpeechRecognizer(activity)
@@ -1913,10 +1940,44 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
             null
         }
     }
+    fun handleVoiceCandidates(candidates: List<String>, source: String) {
+        val cleanCandidates = candidates.map { it.trim() }.filter { it.isNotBlank() }
+        lastVoiceCandidates = cleanCandidates
+        val match = viewModel.state.findVoiceTriggerMatch(cleanCandidates)
+        when {
+            cleanCandidates.isEmpty() -> viewModel.showNotice("$source: no voice result")
+            match == null -> {
+                viewModel.showNotice("$source heard: ${cleanCandidates.voiceCandidatesSummary()}")
+            }
+            match.item.isVideo -> {
+                viewModel.stop()
+                fullscreenVideoItem = match.item
+                viewModel.showNotice(
+                    "Voice matched ${match.item.title} by \"${match.phrase}\" from \"${match.candidate}\""
+                )
+            }
+            else -> {
+                viewModel.showNotice(
+                    "Voice matched ${match.item.title} by \"${match.phrase}\" from \"${match.candidate}\""
+                )
+                viewModel.play(match.item)
+            }
+        }
+    }
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) viewModel.previewImportPack(activity, uri)
+    }
+    val voicePromptLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isVoiceListening = false
+        voiceStatus = null
+        val candidates = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            .orEmpty()
+        handleVoiceCandidates(candidates, "Voice prompt")
     }
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip")
@@ -1946,8 +2007,20 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            speechRecognizer?.startButtonBoxListening(activity)
+            if (speechRecognizer != null) {
+                voiceStatus = "Starting voice trigger..."
+                speechRecognizer.startButtonBoxListening(activity)
+            } else {
+                voiceStatus = "Opening system voice input..."
+                runCatching {
+                    voicePromptLauncher.launch(buttonBoxRecognitionIntent(activity))
+                }.onFailure {
+                    voiceStatus = null
+                    viewModel.showNotice("Voice recognition is not available on this device")
+                }
+            }
         } else {
+            voiceStatus = "Voice permission denied"
             viewModel.showNotice("Microphone permission is required for voice triggers")
         }
     }
@@ -1981,39 +2054,30 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
 
                 override fun onError(error: Int) {
                     isVoiceListening = false
-                    voiceStatus = null
-                    viewModel.showNotice("Voice trigger failed: ${error.voiceErrorMessage()}")
+                    voiceStatus = "Voice error ${error}: ${error.voiceErrorMessage()}"
+                    val candidates = lastVoiceCandidates.voiceCandidatesSummary().takeIf { it.isNotBlank() }
+                    val suffix = candidates?.let { "; last heard: $it" }.orEmpty()
+                    viewModel.showNotice("Voice trigger failed (${error}): ${error.voiceErrorMessage()}$suffix")
                 }
 
                 override fun onResults(results: Bundle?) {
                     isVoiceListening = false
                     voiceStatus = null
-                    val spoken = results
+                    val candidates = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()
                         .orEmpty()
-                    val match = viewModel.state.findVoiceTriggerMatch(spoken)
-                    when {
-                        spoken.isBlank() -> viewModel.showNotice("No voice result")
-                        match == null -> viewModel.showNotice("Heard: $spoken")
-                        match.isVideo -> {
-                            viewModel.stop()
-                            fullscreenVideoItem = match
-                            viewModel.showNotice("Voice matched ${match.title}")
-                        }
-                        else -> {
-                            viewModel.showNotice("Voice matched ${match.title}")
-                            viewModel.play(match)
-                        }
-                    }
+                    handleVoiceCandidates(candidates, "Voice trigger")
                 }
 
                 override fun onPartialResults(partialResults: Bundle?) {
-                    val partial = partialResults
+                    val partials = partialResults
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()
-                    if (!partial.isNullOrBlank()) {
-                        voiceStatus = "Hearing: $partial"
+                        .orEmpty()
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                    if (partials.isNotEmpty()) {
+                        lastVoiceCandidates = partials
+                        voiceStatus = "Hearing: ${partials.voiceCandidatesSummary()}"
                     }
                 }
 
@@ -2051,7 +2115,22 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onStopClick = viewModel::stop,
                 onVoiceClick = {
                     if (speechRecognizer == null) {
-                        viewModel.showNotice("Voice recognition is not available on this device")
+                        if (
+                            ContextCompat.checkSelfPermission(
+                                activity,
+                                Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            voiceStatus = "Opening system voice input..."
+                            runCatching {
+                                voicePromptLauncher.launch(buttonBoxRecognitionIntent(activity))
+                            }.onFailure {
+                                voiceStatus = null
+                                viewModel.showNotice("Voice recognition is not available on this device")
+                            }
+                        } else {
+                            voicePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
                     } else if (isVoiceListening) {
                         speechRecognizer.cancel()
                         isVoiceListening = false
@@ -2063,6 +2142,7 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                             Manifest.permission.RECORD_AUDIO
                         ) == PackageManager.PERMISSION_GRANTED
                     ) {
+                        voiceStatus = "Starting voice trigger..."
                         speechRecognizer.startButtonBoxListening(activity)
                     } else {
                         voicePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -3879,16 +3959,21 @@ private fun ButtonItem.videoPlaybackUri(): Uri {
 }
 
 private fun SpeechRecognizer.startButtonBoxListening(context: Context) {
-    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+    startListening(buttonBoxRecognitionIntent(context))
+}
+
+private fun buttonBoxRecognitionIntent(context: Context): Intent {
+    return Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(
             RecognizerIntent.EXTRA_LANGUAGE_MODEL,
             RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
         )
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
         putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
+        putExtra(RecognizerIntent.EXTRA_PROMPT, "ButtonBox voice trigger")
     }
-    startListening(intent)
 }
 
 private fun Int.voiceErrorMessage(): String {
@@ -3909,6 +3994,12 @@ private fun Int.voiceErrorMessage(): String {
 private fun String.normalizedTriggerText(): String {
     return lowercase(Locale.getDefault())
         .replace(Regex("[\\s　_\\-.,!?，。！？]+"), "")
+}
+
+private fun List<String>.voiceCandidatesSummary(): String {
+    return distinct()
+        .take(3)
+        .joinToString(" / ")
 }
 
 private fun safeZipFile(root: File, entry: ZipEntry): File {

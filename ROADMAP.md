@@ -248,14 +248,20 @@ First version should be foreground-only:
 - Trigger audio or video playback on match.
 - Show clear UI for listening, matched, and no-match states.
 
-Status: foreground MVP completed in v2.20.
+Status: foreground MVP completed in v2.20; real-device diagnostics polish added
+in v2.21.
 
 - Added a microphone floating action button for start/stop listening.
 - Reuses `RECORD_AUDIO` permission without adding a background service.
-- Matches normalized recognition results against saved trigger phrases.
+- Matches normalized recognition candidates against saved trigger phrases with
+  exact-match and contains-match ranking.
 - Audio matches play through the existing `MediaPlayer` path.
 - Video matches open the existing fullscreen Media3 player.
 - Non-matching results are surfaced as notices so trigger phrases can be tuned.
+- Failure notices now include speech error codes, readable reasons, and last
+  heard candidates for phone-side debugging.
+- If direct `SpeechRecognizer` is unavailable, ButtonBox tries Android's system
+  voice input prompt as a fallback.
 
 Later version can investigate background listening, but that has Android
 permission, battery, privacy, and vendor-kill restrictions.
@@ -277,5 +283,5 @@ Done when:
 
 ## Current Recommended Next Step
 
-Move into Phase 6 polish: better match ranking, optional fuzzy matching,
-language selection, and a testable voice-recognition diagnostics screen.
+Move into Phase 6 polish: optional fuzzy matching, explicit language selection,
+and a fuller voice-recognition diagnostics screen with service/provider details.

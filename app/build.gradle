@@ -4,7 +4,7 @@ plugins {
     id 'com.google.devtools.ksp'
 }
 
-def buttonBoxVersionName = '2.20-voice-trigger-mvp'
+def buttonBoxVersionName = '2.21-voice-trigger-diagnostics'
 
 android {
     namespace 'aquacrew.aquabutton'
@@ -14,7 +14,7 @@ android {
         applicationId 'com.znbsf.buttonbox'
         minSdk 24
         targetSdk 36
-        versionCode 22
+        versionCode 23
         versionName buttonBoxVersionName
     }
 

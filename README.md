@@ -30,6 +30,9 @@ buttons can all live in the same pack system.
   audio/video buttons, and are preserved in exported packs.
 - Foreground voice trigger MVP: tap the microphone FAB, speak a saved trigger
   phrase, and ButtonBox plays the matching audio or opens the matching video.
+  It checks multiple recognition candidates, shows matched phrase/candidate
+  details, and falls back to Android's system voice input if direct recognition
+  is unavailable.
 - Video playback can be switched between fill-screen crop and complete-frame
   fit from the top-right pack actions menu.
 - Rename packs/categories/buttons, move buttons between categories, and delete
@@ -147,7 +150,9 @@ when creating or editing a button, then tap the microphone floating button and
 speak the phrase. ButtonBox uses Android's system `SpeechRecognizer`; when the
 recognized text contains a saved trigger phrase, audio buttons play immediately
 and video buttons open in the fullscreen player. If nothing matches, the app
-shows the recognized text so the phrase can be adjusted.
+shows the recognized candidates so the phrase can be adjusted. If recognition
+fails on a real device, the visible status includes the Android speech error
+code, readable reason, and the last heard candidates.
 
 Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
 add categories and imported audio to them. Imported audio files are copied into
