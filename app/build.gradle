@@ -4,7 +4,7 @@ plugins {
     id 'com.google.devtools.ksp'
 }
 
-def buttonBoxVersionName = '2.21-voice-trigger-diagnostics'
+def buttonBoxVersionName = '2.22-offline-whisper-voice'
 
 android {
     namespace 'aquacrew.aquabutton'
@@ -14,7 +14,7 @@ android {
         applicationId 'com.znbsf.buttonbox'
         minSdk 24
         targetSdk 36
-        versionCode 23
+        versionCode 24
         versionName buttonBoxVersionName
     }
 
@@ -35,7 +35,7 @@ android {
             manifest.srcFile 'src/modern/AndroidManifest.xml'
             kotlin.srcDirs = ['src/modern/java']
             res.srcDirs = ['src/modern/res']
-            assets.srcDirs = []
+            assets.srcDirs = ['src/modern/engine-assets']
         }
         bundled {
             assets.srcDirs = ['src/modern/assets']
@@ -79,6 +79,7 @@ dependencies {
     implementation 'androidx.room:room-runtime:2.8.4'
     implementation 'androidx.room:room-ktx:2.8.4'
     implementation 'com.google.code.gson:gson:2.11.0'
+    implementation project(':whispercpp')
 
     ksp 'androidx.room:room-compiler:2.8.4'
 

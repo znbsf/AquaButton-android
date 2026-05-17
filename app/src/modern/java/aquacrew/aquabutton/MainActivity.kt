@@ -1,10 +1,13 @@
 package aquacrew.aquabutton
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.AssetManager
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.MediaRecorder
@@ -84,6 +87,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -120,15 +124,23 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.withTransaction
+import com.whispercpp.whisper.WhisperContext
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
+import kotlin.math.min
+import kotlin.math.sqrt
 import java.util.Locale
 import java.util.UUID
 import java.util.zip.ZipEntry
@@ -145,6 +157,8 @@ private const val PREF_HIDDEN_BUILT_IN_PACKS = "hidden_built_in_packs"
 private const val PREF_HIDDEN_BUILT_IN_CATEGORIES = "hidden_built_in_categories"
 private const val PREF_HIDDEN_BUILT_IN_ITEMS = "hidden_built_in_items"
 private const val PREF_VIDEO_FILL_SCREEN = "video_fill_screen"
+private const val WHISPER_MODEL_ASSET = "models/ggml-tiny-q5_1.bin"
+private const val WHISPER_VOICE_TIMEOUT_MS = 15_000L
 
 data class ButtonPack(
     val id: String,
@@ -182,6 +196,11 @@ data class VoiceTriggerMatch(
     val phrase: String,
     val candidate: String,
     val score: Int
+)
+
+private data class RecordedVoice(
+    val samples: FloatArray,
+    val voiceSeen: Boolean
 )
 
 private val ButtonItem.isVideo: Boolean
@@ -1255,6 +1274,102 @@ data class AquaUiState(
     }
 }
 
+private class OfflineWhisperVoiceRecognizer(private val context: Context) {
+    private var whisperContext: WhisperContext? = null
+
+    suspend fun recordAndTranscribe(
+        maxDurationMs: Long,
+        onStatus: suspend (String) -> Unit
+    ): String = withContext(Dispatchers.IO) {
+        val model = whisperContext ?: loadModel(onStatus).also { whisperContext = it }
+        val audio = recordPcm(maxDurationMs, onStatus)
+        if (!audio.voiceSeen || audio.samples.isEmpty()) {
+            onStatus("Offline voice: no speech detected")
+            return@withContext ""
+        }
+        onStatus("Offline voice: recognizing ${audio.samples.size / 16} ms...")
+        model.transcribeData(audio.samples, printTimestamp = false).trim()
+    }
+
+    private suspend fun loadModel(onStatus: suspend (String) -> Unit): WhisperContext {
+        onStatus("Offline voice: loading tiny model...")
+        return WhisperContext.createContextFromAsset(context.assets, WHISPER_MODEL_ASSET)
+    }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun recordPcm(
+        maxDurationMs: Long,
+        onStatus: suspend (String) -> Unit
+    ): RecordedVoice {
+        onStatus("Offline voice: recording up to ${maxDurationMs / 1000}s...")
+        val sampleRate = 16_000
+        val maxSamples = (sampleRate * maxDurationMs / 1000).toInt()
+        val minBufferSize = AudioRecord.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        ).coerceAtLeast(sampleRate / 5)
+        val buffer = ShortArray(minBufferSize / 2)
+        val samples = ShortArray(maxSamples)
+        var total = 0
+        var voiceSeen = false
+        var silentAfterVoiceMs = 0
+        var lastStatusSecond = -1
+
+        val audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.MIC,
+            sampleRate,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+            minBufferSize
+        )
+        try {
+            audioRecord.startRecording()
+            while (total < maxSamples) {
+                currentCoroutineContext().ensureActive()
+                val read = audioRecord.read(buffer, 0, min(buffer.size, maxSamples - total))
+                if (read <= 0) {
+                    error("AudioRecord read failed: $read")
+                }
+                System.arraycopy(buffer, 0, samples, total, read)
+                total += read
+
+                val elapsedMs = total * 1000 / sampleRate
+                val currentSecond = elapsedMs / 1000
+                if (currentSecond != lastStatusSecond) {
+                    lastStatusSecond = currentSecond
+                    onStatus("Offline voice: recording ${currentSecond}s / ${maxDurationMs / 1000}s")
+                }
+
+                val rms = buffer.rms(read)
+                if (rms > 700.0) {
+                    voiceSeen = true
+                    silentAfterVoiceMs = 0
+                } else if (voiceSeen) {
+                    silentAfterVoiceMs += read * 1000 / sampleRate
+                    if (elapsedMs >= 1800 && silentAfterVoiceMs >= 1200) {
+                        break
+                    }
+                }
+            }
+        } finally {
+            runCatching { audioRecord.stop() }
+            audioRecord.release()
+        }
+        val audio = FloatArray(total) { index ->
+            (samples[index] / 32768.0f).coerceIn(-1f, 1f)
+        }
+        return RecordedVoice(audio, voiceSeen)
+    }
+
+    fun close() {
+        runBlocking {
+            whisperContext?.release()
+            whisperContext = null
+        }
+    }
+}
+
 class AquaViewModel : ViewModel() {
     var state by mutableStateOf(AquaUiState())
         private set
@@ -1933,6 +2048,10 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
     var isVoiceListening by remember { mutableStateOf(false) }
     var voiceStatus by remember { mutableStateOf<String?>(null) }
     var lastVoiceCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
+    var offlineVoiceJob by remember { mutableStateOf<Job?>(null) }
+    var suppressNextVoiceError by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val offlineWhisper = remember { OfflineWhisperVoiceRecognizer(activity.applicationContext) }
     val speechRecognizer = remember {
         if (SpeechRecognizer.isRecognitionAvailable(activity)) {
             SpeechRecognizer.createSpeechRecognizer(activity)
@@ -1962,6 +2081,40 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 )
                 viewModel.play(match.item)
             }
+        }
+    }
+    fun startOfflineVoiceTrigger() {
+        offlineVoiceJob?.cancel()
+        offlineVoiceJob = coroutineScope.launch {
+            isVoiceListening = true
+            voiceStatus = "Offline voice: starting..."
+            try {
+                val text = offlineWhisper.recordAndTranscribe(WHISPER_VOICE_TIMEOUT_MS) { status ->
+                    withContext(Dispatchers.Main) {
+                        voiceStatus = status
+                    }
+                }
+                isVoiceListening = false
+                voiceStatus = null
+                handleVoiceCandidates(listOf(text), "Offline voice")
+            } catch (error: CancellationException) {
+                isVoiceListening = false
+                voiceStatus = null
+                viewModel.showNotice("Offline voice stopped")
+            } catch (error: Throwable) {
+                isVoiceListening = false
+                voiceStatus = "Offline voice failed: ${error.message}"
+                viewModel.showNotice("Offline voice failed: ${error.message}")
+            }
+        }
+    }
+    fun startVoiceTriggerWithBestEngine() {
+        if (speechRecognizer != null) {
+            suppressNextVoiceError = false
+            voiceStatus = "Starting voice trigger..."
+            speechRecognizer.startButtonBoxListening(activity)
+        } else {
+            startOfflineVoiceTrigger()
         }
     }
     val importLauncher = rememberLauncherForActivityResult(
@@ -2007,18 +2160,7 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            if (speechRecognizer != null) {
-                voiceStatus = "Starting voice trigger..."
-                speechRecognizer.startButtonBoxListening(activity)
-            } else {
-                voiceStatus = "Opening system voice input..."
-                runCatching {
-                    voicePromptLauncher.launch(buttonBoxRecognitionIntent(activity))
-                }.onFailure {
-                    voiceStatus = null
-                    viewModel.showNotice("Voice recognition is not available on this device")
-                }
-            }
+            startVoiceTriggerWithBestEngine()
         } else {
             voiceStatus = "Voice permission denied"
             viewModel.showNotice("Microphone permission is required for voice triggers")
@@ -2028,7 +2170,11 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
         viewModel.load(activity)
     }
     DisposableEffect(Unit) {
-        onDispose { viewModel.stop() }
+        onDispose {
+            offlineVoiceJob?.cancel()
+            offlineWhisper.close()
+            viewModel.stop()
+        }
     }
     DisposableEffect(speechRecognizer) {
         val recognizer = speechRecognizer ?: return@DisposableEffect onDispose { }
@@ -2054,10 +2200,16 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
 
                 override fun onError(error: Int) {
                     isVoiceListening = false
+                    if (suppressNextVoiceError) {
+                        suppressNextVoiceError = false
+                        voiceStatus = null
+                        return
+                    }
                     voiceStatus = "Voice error ${error}: ${error.voiceErrorMessage()}"
                     val candidates = lastVoiceCandidates.voiceCandidatesSummary().takeIf { it.isNotBlank() }
                     val suffix = candidates?.let { "; last heard: $it" }.orEmpty()
-                    viewModel.showNotice("Voice trigger failed (${error}): ${error.voiceErrorMessage()}$suffix")
+                    viewModel.showNotice("Voice trigger failed (${error}): ${error.voiceErrorMessage()}$suffix; switching to offline voice")
+                    startOfflineVoiceTrigger()
                 }
 
                 override fun onResults(results: Bundle?) {
@@ -2114,24 +2266,21 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                 onRandomClick = viewModel::playRandom,
                 onStopClick = viewModel::stop,
                 onVoiceClick = {
-                    if (speechRecognizer == null) {
+                    if (offlineVoiceJob?.isActive == true) {
+                        offlineVoiceJob?.cancel()
+                    } else if (speechRecognizer == null) {
                         if (
                             ContextCompat.checkSelfPermission(
                                 activity,
                                 Manifest.permission.RECORD_AUDIO
                             ) == PackageManager.PERMISSION_GRANTED
                         ) {
-                            voiceStatus = "Opening system voice input..."
-                            runCatching {
-                                voicePromptLauncher.launch(buttonBoxRecognitionIntent(activity))
-                            }.onFailure {
-                                voiceStatus = null
-                                viewModel.showNotice("Voice recognition is not available on this device")
-                            }
+                            startOfflineVoiceTrigger()
                         } else {
                             voicePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
                     } else if (isVoiceListening) {
+                        suppressNextVoiceError = true
                         speechRecognizer.cancel()
                         isVoiceListening = false
                         voiceStatus = null
@@ -2142,8 +2291,7 @@ fun AquaButtonApp(activity: ComponentActivity, viewModel: AquaViewModel = viewMo
                             Manifest.permission.RECORD_AUDIO
                         ) == PackageManager.PERMISSION_GRANTED
                     ) {
-                        voiceStatus = "Starting voice trigger..."
-                        speechRecognizer.startButtonBoxListening(activity)
+                        startVoiceTriggerWithBestEngine()
                     } else {
                         voicePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
@@ -4000,6 +4148,16 @@ private fun List<String>.voiceCandidatesSummary(): String {
     return distinct()
         .take(3)
         .joinToString(" / ")
+}
+
+private fun ShortArray.rms(size: Int): Double {
+    if (size <= 0) return 0.0
+    var sum = 0.0
+    for (index in 0 until size) {
+        val value = this[index].toDouble()
+        sum += value * value
+    }
+    return sqrt(sum / size)
 }
 
 private fun safeZipFile(root: File, entry: ZipEntry): File {

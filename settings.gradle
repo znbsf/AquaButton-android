@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = 'ButtonBox'
 include ':app'
+include ':whispercpp'
+project(':whispercpp').projectDir = file('third_party/whispercpp/lib')

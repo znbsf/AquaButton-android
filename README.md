@@ -31,8 +31,8 @@ buttons can all live in the same pack system.
 - Foreground voice trigger MVP: tap the microphone FAB, speak a saved trigger
   phrase, and ButtonBox plays the matching audio or opens the matching video.
   It checks multiple recognition candidates, shows matched phrase/candidate
-  details, and falls back to Android's system voice input if direct recognition
-  is unavailable.
+  details, and falls back to bundled whisper.cpp offline short-phrase
+  recognition if Android's system recognition service is unavailable.
 - Video playback can be switched between fill-screen crop and complete-frame
   fit from the top-right pack actions menu.
 - Rename packs/categories/buttons, move buttons between categories, and delete
@@ -153,6 +153,11 @@ and video buttons open in the fullscreen player. If nothing matches, the app
 shows the recognized candidates so the phrase can be adjusted. If recognition
 fails on a real device, the visible status includes the Android speech error
 code, readable reason, and the last heard candidates.
+
+On devices where Android reports that `SpeechRecognizer` is unavailable, the
+same microphone button records up to 15 seconds and transcribes the short phrase
+locally with whisper.cpp using the bundled multilingual tiny quantized model.
+The result is matched against the same button trigger phrases.
 
 Built-in Aqua and Mea packs keep their bundled assets read-only, but you can
 add categories and imported audio to them. Imported audio files are copied into

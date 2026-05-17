@@ -249,7 +249,7 @@ First version should be foreground-only:
 - Show clear UI for listening, matched, and no-match states.
 
 Status: foreground MVP completed in v2.20; real-device diagnostics polish added
-in v2.21.
+in v2.21; offline whisper.cpp fallback added in v2.22.
 
 - Added a microphone floating action button for start/stop listening.
 - Reuses `RECORD_AUDIO` permission without adding a background service.
@@ -260,8 +260,9 @@ in v2.21.
 - Non-matching results are surfaced as notices so trigger phrases can be tuned.
 - Failure notices now include speech error codes, readable reasons, and last
   heard candidates for phone-side debugging.
-- If direct `SpeechRecognizer` is unavailable, ButtonBox tries Android's system
-  voice input prompt as a fallback.
+- If direct `SpeechRecognizer` is unavailable, ButtonBox records a short
+  foreground clip and runs bundled whisper.cpp offline transcription before
+  matching the same trigger phrases.
 
 Later version can investigate background listening, but that has Android
 permission, battery, privacy, and vendor-kill restrictions.
@@ -283,5 +284,6 @@ Done when:
 
 ## Current Recommended Next Step
 
-Move into Phase 6 polish: optional fuzzy matching, explicit language selection,
-and a fuller voice-recognition diagnostics screen with service/provider details.
+Move into Phase 6 polish: optional fuzzy matching, explicit language/model
+selection, downloadable larger Whisper models, and a fuller diagnostics screen
+with service/provider details.
